@@ -6,6 +6,8 @@ const MIN_ZOOM = 0.5
 const MAX_ZOOM = 3
 const ZOOM_STEP = 0.1
 
+export type EditorTool = 'select' | 'text'
+
 export type PdfEditorState = {
   pdf: PDFDocumentProxy | null
   pdfFileName: string
@@ -13,6 +15,8 @@ export type PdfEditorState = {
   totalPages: number
   /** Multiplier applied after fit-to-width (1 = 100% of fit). */
   zoomLevel: number
+  /** Primary toolbar tool (e.g. Text adds IText on empty canvas click). */
+  activeTool: EditorTool
   fabricByPage: Map<number, Canvas>
 }
 
@@ -24,6 +28,7 @@ export type PdfEditorActions = {
   setZoomLevel: (level: number) => void
   zoomIn: () => void
   zoomOut: () => void
+  setActiveTool: (tool: EditorTool) => void
   registerFabric: (page: number, canvas: Canvas) => Promise<void>
   disposeFabric: (page: number) => Promise<void>
   /** Remove map entry without disposing — use when the instance was already disposed. */
@@ -51,6 +56,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
     currentPage: 1,
     totalPages: 0,
     zoomLevel: 1,
+    activeTool: 'select',
     fabricByPage: new Map(),
 
     loadPdfFromBytes: async (data, fileName) => {
@@ -71,6 +77,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         currentPage: 1,
         fabricByPage: new Map(),
         zoomLevel: 1,
+        activeTool: 'select',
       })
     },
 
@@ -101,6 +108,8 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
 
     zoomOut: () =>
       set((s) => ({ zoomLevel: clampZoom(s.zoomLevel - ZOOM_STEP) })),
+
+    setActiveTool: (tool) => set({ activeTool: tool }),
 
     registerFabric: async (page, canvas) => {
       const prev = get().fabricByPage.get(page)
@@ -152,6 +161,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         currentPage: 1,
         totalPages: 0,
         zoomLevel: 1,
+        activeTool: 'select',
         fabricByPage: new Map(),
       })
     },

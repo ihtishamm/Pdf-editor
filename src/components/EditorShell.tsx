@@ -64,6 +64,8 @@ export function EditorShell({
   const loadFile = usePdfEditorStore((s) => s.loadFile)
   const zoomIn = usePdfEditorStore((s) => s.zoomIn)
   const zoomOut = usePdfEditorStore((s) => s.zoomOut)
+  const activeTool = usePdfEditorStore((s) => s.activeTool)
+  const setActiveTool = usePdfEditorStore((s) => s.setActiveTool)
 
   return (
     <div className="relative flex min-h-dvh flex-col bg-[#f3f3f3] text-[#333]">
@@ -137,25 +139,39 @@ export function EditorShell({
       <div className="sticky z-40 border-b border-[#e8e8e8] bg-[#fafafa] px-4 py-3">
         <div className="mx-auto flex max-w-[920px] flex-wrap justify-center">
           <div className="inline-flex overflow-hidden rounded-md border border-[#b3d7ff] bg-white shadow-sm">
-            {TOOL_GROUPS.map(({ label, Icon }, i) => (
-              <button
-                key={label}
-                type="button"
-                disabled
-                aria-disabled
-                className={`flex min-h-[40px] items-center gap-1.5 px-3 py-2 text-sm text-[#555] ${
-                  i > 0 ? 'border-l border-[#b3d7ff]' : ''
-                }`}
-              >
-                <Icon className="h-4 w-4 shrink-0 text-[#40a9ff]" strokeWidth={1.75} />
-                <span>{label}</span>
-                {label !== 'Undo' && label !== 'Whiteout' ? (
-                  <span className="text-[10px] text-[#888]" aria-hidden>
-                    ▾
-                  </span>
-                ) : null}
-              </button>
-            ))}
+            {TOOL_GROUPS.map(({ label, Icon }, i) => {
+              const isText = label === 'Text'
+              const textActive = isText && activeTool === 'text'
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  disabled={!isText}
+                  aria-disabled={!isText}
+                  aria-pressed={isText ? textActive : undefined}
+                  onClick={() => {
+                    if (!isText) return
+                    setActiveTool(activeTool === 'text' ? 'select' : 'text')
+                  }}
+                  className={`flex min-h-[40px] items-center gap-1.5 px-3 py-2 text-sm ${
+                    isText ? 'text-[#333]' : 'cursor-not-allowed text-[#aaa]'
+                  } ${textActive ? 'bg-[#f0f8ff]' : ''} ${
+                    i > 0 ? 'border-l border-[#b3d7ff]' : ''
+                  }`}
+                >
+                  <Icon
+                    className={`h-4 w-4 shrink-0 ${isText ? 'text-[#40a9ff]' : 'text-[#ccc]'}`}
+                    strokeWidth={1.75}
+                  />
+                  <span>{label}</span>
+                  {label !== 'Undo' && label !== 'Whiteout' ? (
+                    <span className="text-[10px] text-[#888]" aria-hidden>
+                      ▾
+                    </span>
+                  ) : null}
+                </button>
+              )
+            })}
           </div>
         </div>
       </div>
