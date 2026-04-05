@@ -1,8 +1,12 @@
 import { Canvas } from 'fabric'
 import { getDocument, type PDFDocumentProxy } from 'pdfjs-dist'
 import { create } from 'zustand'
+import { fabricHistoryRuntime } from '../lib/fabricHistoryRuntime'
+import { revertHistoryEntries } from '../lib/fabricHistoryRevert'
 import type { FormFieldMeta } from '../types/formFields'
 import type { PdfLinkEntry } from '../types/pdfLinks'
+import type { PendingSignatureInsert, SavedSignature } from '../types/signatures'
+import type { HistoryEntry } from '../types/fabricHistory'
 import type {
   AnnotateVariant,
   CommentEntry,
@@ -12,6 +16,7 @@ import type {
 } from '../types/editorTools'
 
 const MIN_ZOOM = 0.5
+const MAX_HISTORY_ENTRIES = 50
 const MAX_ZOOM = 3
 const ZOOM_STEP = 0.1
 
@@ -40,6 +45,11 @@ export type PdfEditorState = {
   fabricByPage: Map<number, Canvas>
   /** Picked up by PDFViewer to insert on the current page’s Fabric canvas. */
   pendingImageInsert: File | null
+  /** Insert Fabric image from Sign modal (centered, or at last cursor position on overlay). */
+  pendingSignature: PendingSignatureInsert | null
+  savedSignatures: SavedSignature[]
+  /** Newest first; global across PDF pages. */
+  history: HistoryEntry[]
 }
 
 export type PdfEditorActions = {
@@ -76,6 +86,18 @@ export type PdfEditorActions = {
   reset: () => Promise<void>
   enqueueImageInsert: (file: File) => void
   clearPendingImageInsert: () => void
+  enqueueSignatureDataUrl: (dataUrl: string, placeAtCursor?: boolean) => void
+  clearPendingSignatureDataUrl: () => void
+  addSavedSignature: (dataUrl: string) => SavedSignature
+  removeSavedSignature: (id: string) => void
+  addHistory: (
+    entry: Omit<HistoryEntry, 'id' | 'timestamp'> & {
+      id?: string
+      timestamp?: Date
+    },
+  ) => void
+  revertEntries: (entryIds: string[]) => Promise<void>
+  undoLast: () => void
 }
 
 function clampZoom(z: number): number {
@@ -92,6 +114,10 @@ function newFormFieldId(): string {
 
 function newPdfLinkId(): string {
   return `lnk-${crypto.randomUUID()}`
+}
+
+function newSavedSignatureId(): string {
+  return `sig-${crypto.randomUUID()}`
 }
 
 function slugPdfName(prefix: string): string {
@@ -127,6 +153,9 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
     commentPanelOpen: false,
     fabricByPage: new Map(),
     pendingImageInsert: null,
+    pendingSignature: null,
+    savedSignatures: [],
+    history: [],
 
     loadPdfFromBytes: async (data, fileName) => {
       const prev = get().pdf
@@ -155,6 +184,8 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         activeCommentId: null,
         commentPanelOpen: false,
         pendingImageInsert: null,
+        pendingSignature: null,
+        history: [],
       })
     },
 
@@ -365,6 +396,60 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
 
     clearPendingImageInsert: () => set({ pendingImageInsert: null }),
 
+    enqueueSignatureDataUrl: (dataUrl, placeAtCursor = false) =>
+      set({ pendingSignature: { dataUrl, placeAtCursor } }),
+
+    clearPendingSignatureDataUrl: () => set({ pendingSignature: null }),
+
+    addSavedSignature: (dataUrl) => {
+      const entry: SavedSignature = {
+        id: newSavedSignatureId(),
+        dataUrl,
+        createdAt: Date.now(),
+      }
+      set((s) => ({ savedSignatures: [...s.savedSignatures, entry] }))
+      return entry
+    },
+
+    removeSavedSignature: (id) => {
+      set((s) => ({
+        savedSignatures: s.savedSignatures.filter((x) => x.id !== id),
+      }))
+    },
+
+    addHistory: (partial) => {
+      const id = partial.id ?? crypto.randomUUID()
+      const entry: HistoryEntry = {
+        ...partial,
+        id,
+        timestamp: partial.timestamp ?? new Date(),
+      }
+      set((s) => ({
+        history: [entry, ...s.history].slice(0, MAX_HISTORY_ENTRIES),
+      }))
+    },
+
+    revertEntries: async (entryIds) => {
+      const idSet = new Set(entryIds)
+      const { fabricByPage, history } = get()
+      const toRevert = history
+        .filter((e) => idSet.has(e.id))
+        .sort((a, b) => history.indexOf(a) - history.indexOf(b))
+      await fabricHistoryRuntime.runSuppressedAsync(() =>
+        revertHistoryEntries(toRevert, fabricByPage),
+      )
+      set((s) => ({
+        history: s.history.filter((e) => !idSet.has(e.id)),
+      }))
+    },
+
+    undoLast: () => {
+      const h = get().history
+      const first = h[0]
+      if (!first) return
+      void get().revertEntries([first.id])
+    },
+
     reset: async () => {
       const { pdf, fabricByPage } = get()
       await disposeAllFabricFromMap(fabricByPage)
@@ -390,7 +475,12 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         commentPanelOpen: false,
         fabricByPage: new Map(),
         pendingImageInsert: null,
+        pendingSignature: null,
+        savedSignatures: [],
+        history: [],
       })
     },
   }),
 )
+
+export type { HistoryEntry }

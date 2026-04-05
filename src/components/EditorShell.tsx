@@ -1,4 +1,5 @@
 import {
+  ChevronDown,
   ChevronRight,
   Eraser,
   Globe,
@@ -23,6 +24,8 @@ import {
 import type { ReactNode } from 'react'
 import { useRef, useState } from 'react'
 import { usePdfEditorStore } from '../store/pdfEditorStore'
+import { CreateSignatureModal } from './CreateSignatureModal'
+import { UndoHistoryDialog } from './UndoHistoryDialog'
 import type {
   AnnotateVariant,
   FormFieldVariant,
@@ -95,13 +98,23 @@ export function EditorShell({
   const pdfLinks = usePdfEditorStore((s) => s.pdfLinks)
   const formFieldVariant = usePdfEditorStore((s) => s.formFieldVariant)
   const setFormFieldVariant = usePdfEditorStore((s) => s.setFormFieldVariant)
+  const history = usePdfEditorStore((s) => s.history)
+  const undoLast = usePdfEditorStore((s) => s.undoLast)
 
   const [shapesOpen, setShapesOpen] = useState(false)
   const [annotateOpen, setAnnotateOpen] = useState(false)
   const [formsOpen, setFormsOpen] = useState(false)
+  const [signModalOpen, setSignModalOpen] = useState(false)
+  const [undoHistoryOpen, setUndoHistoryOpen] = useState(false)
+
+  const hasHistory = history.length > 0
 
   return (
     <div className="relative flex min-h-dvh flex-col bg-[#f3f3f3] text-[#333]">
+      <UndoHistoryDialog
+        open={undoHistoryOpen}
+        onClose={() => setUndoHistoryOpen(false)}
+      />
       <header className="sticky top-0 z-50 border-b border-[#e0e0e0] bg-white">
         <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-4 px-6 py-3">
           <div className="flex items-center gap-2">
@@ -401,22 +414,40 @@ export function EditorShell({
             </button>
             <button
               type="button"
-              disabled
-              aria-disabled
-              className="flex min-h-[40px] cursor-not-allowed items-center gap-1.5 border-r border-[#e8e8e8] px-2 py-2 text-sm text-[#aaa]"
+              disabled={!pdfSourceBytes}
+              onClick={() => {
+                setShapesOpen(false)
+                setAnnotateOpen(false)
+                setFormsOpen(false)
+                setSignModalOpen(true)
+              }}
+              className="flex min-h-[40px] items-center gap-1.5 border-r border-[#e8e8e8] bg-white px-2 py-2 text-sm text-[#333] hover:bg-[#f0f8ff] disabled:cursor-not-allowed disabled:text-[#aaa]"
             >
-              <Pen className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+              <Pen className="h-4 w-4 shrink-0 text-[#40a9ff]" strokeWidth={1.75} />
               <span className="hidden sm:inline">Sign</span>
             </button>
-            <button
-              type="button"
-              disabled
-              aria-disabled
-              className="flex min-h-[40px] cursor-not-allowed items-center gap-1.5 px-2 py-2 text-sm text-[#aaa]"
-            >
-              <Undo2 className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-              <span className="hidden sm:inline">Undo</span>
-            </button>
+            <div className="flex min-h-[40px] items-stretch border-r border-[#e8e8e8]">
+              <button
+                type="button"
+                disabled={!hasHistory}
+                onClick={() => undoLast()}
+                className="flex items-center gap-1.5 bg-white px-2 py-2 text-sm text-[#333] hover:bg-[#f0f8ff] disabled:cursor-not-allowed disabled:text-[#aaa] disabled:hover:bg-white"
+                title="Undo last change"
+              >
+                <Undo2 className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                <span className="hidden sm:inline">Undo</span>
+              </button>
+              <button
+                type="button"
+                disabled={!hasHistory}
+                onClick={() => setUndoHistoryOpen(true)}
+                className="flex items-center bg-white px-1.5 py-2 text-[#333] hover:bg-[#f0f8ff] disabled:cursor-not-allowed disabled:text-[#aaa] disabled:hover:bg-white"
+                aria-label="Open undo history"
+                title="Undo history"
+              >
+                <ChevronDown className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -580,6 +611,11 @@ export function EditorShell({
       >
         <Grid3x3 className="h-5 w-5" />
       </button>
+
+      <CreateSignatureModal
+        open={signModalOpen}
+        onClose={() => setSignModalOpen(false)}
+      />
     </div>
   )
 }

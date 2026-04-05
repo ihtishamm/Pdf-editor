@@ -6,9 +6,11 @@ import {
   useState,
   type DragEvent,
 } from 'react'
+import type { TPointerEventInfo } from 'fabric'
 import type { RenderTask } from 'pdfjs-dist'
 import { applyCanvasToolMode, attachFabricCanvasTools } from '../lib/fabricCanvasTools'
 import {
+  addFabricImageFromDataUrl,
   addFabricImageFromFile,
   pickImageFilesFromDataTransfer,
 } from '../lib/insertFabricImage'
@@ -19,12 +21,24 @@ import {
   isFormFieldObject,
   refreshFabricFormField,
 } from '../lib/fabricFormField'
+import { attachFabricHistoryToCanvas } from '../lib/attachFabricHistoryToCanvas'
+import { fabricHistoryRuntime } from '../lib/fabricHistoryRuntime'
+import { markFabricHistoryUser } from '../lib/fabricHistoryHelpers'
 import {
   addPdfLinksToCanvas,
   applyPdfLinksLockState,
+  createFabricPdfLink,
 } from '../lib/fabricPdfLink'
 import { addPdfTextItemsToCanvas } from '../lib/pdfTextToFabric'
 import type { FormFieldType } from '../types/formFields'
+
+const FORM_FIELD_HISTORY_LABELS: Record<FormFieldType, string> = {
+  text: 'Text field',
+  checkbox: 'Checkbox',
+  radio: 'Radio',
+  dropdown: 'Dropdown',
+  button: 'Button',
+}
 import { usePdfEditorStore } from '../store/pdfEditorStore'
 import { CommentPanel } from './CommentPanel'
 import { LinkPropertiesPopover } from './LinkPropertiesPopover'
@@ -52,6 +66,10 @@ export function PDFViewer() {
   const unregisterFabricPage = usePdfEditorStore((s) => s.unregisterFabricPage)
   const pendingImageInsert = usePdfEditorStore((s) => s.pendingImageInsert)
   const clearPendingImageInsert = usePdfEditorStore((s) => s.clearPendingImageInsert)
+  const pendingSignature = usePdfEditorStore((s) => s.pendingSignature)
+  const clearPendingSignatureDataUrl = usePdfEditorStore(
+    (s) => s.clearPendingSignatureDataUrl,
+  )
   const enqueueImageInsert = usePdfEditorStore((s) => s.enqueueImageInsert)
   const setActiveTool = usePdfEditorStore((s) => s.setActiveTool)
   const pdfLinks = usePdfEditorStore((s) => s.pdfLinks)
@@ -64,6 +82,8 @@ export function PDFViewer() {
   const measureRef = useRef<HTMLDivElement>(null)
   const fabricHostRef = useRef<HTMLDivElement>(null)
   const fabricInstanceRef = useRef<Canvas | null>(null)
+  /** Last pointer position in Fabric scene space (for placing saved signatures at cursor). */
+  const lastScenePointerRef = useRef({ x: 0, y: 0 })
   const [containerWidth, setContainerWidth] = useState(0)
 
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -97,6 +117,7 @@ export function PDFViewer() {
     const { signal } = ac
     let renderTask: RenderTask | null = null
     let detachFabricTools: (() => void) | null = null
+    let detachFabricHistory: (() => void) | null = null
 
     void (async () => {
       const page = await pdf.getPage(currentPage)
@@ -151,29 +172,24 @@ export function PDFViewer() {
         return
       }
 
-      addPdfTextItemsToCanvas(fabricCanvas, textContent, viewport)
-
-      if (signal.aborted) {
-        await fabricCanvas.dispose()
-        return
-      }
-
-      addFormFieldsToCanvas(
-        fabricCanvas,
-        usePdfEditorStore.getState().formFields,
-        currentPage,
-        w,
-        h,
-      )
-
-      addPdfLinksToCanvas(
-        fabricCanvas,
-        usePdfEditorStore.getState().pdfLinks,
-        currentPage,
-        w,
-        h,
-        usePdfEditorStore.getState().activeTool === 'links',
-      )
+      fabricHistoryRuntime.runSuppressed(() => {
+        addPdfTextItemsToCanvas(fabricCanvas, textContent, viewport)
+        addFormFieldsToCanvas(
+          fabricCanvas,
+          usePdfEditorStore.getState().formFields,
+          currentPage,
+          w,
+          h,
+        )
+        addPdfLinksToCanvas(
+          fabricCanvas,
+          usePdfEditorStore.getState().pdfLinks,
+          currentPage,
+          w,
+          h,
+          usePdfEditorStore.getState().activeTool === 'links',
+        )
+      })
 
       if (signal.aborted) {
         await fabricCanvas.dispose()
@@ -181,6 +197,13 @@ export function PDFViewer() {
       }
 
       const store = usePdfEditorStore.getState
+
+      const historyApi = attachFabricHistoryToCanvas(
+        fabricCanvas,
+        () => store().currentPage,
+        (partial) => store().addHistory(partial),
+      )
+      detachFabricHistory = historyApi.dispose
 
       detachFabricTools = attachFabricCanvasTools(
         fabricCanvas,
@@ -229,6 +252,7 @@ export function PDFViewer() {
               fabricCanvas.getWidth(),
               fabricCanvas.getHeight(),
             )
+            markFabricHistoryUser(g, 'form', FORM_FIELD_HISTORY_LABELS[t])
             g.set({
               selectable: true,
               evented: true,
@@ -261,6 +285,17 @@ export function PDFViewer() {
               position,
               size,
             })
+            const cw0 = fabricCanvas.getWidth()
+            const ch0 = fabricCanvas.getHeight()
+            const linkRect = createFabricPdfLink(
+              entry,
+              cw0,
+              ch0,
+              s.activeTool === 'links',
+            )
+            fabricCanvas.add(linkRect)
+            fabricCanvas.bringObjectToFront(linkRect)
+            fabricCanvas.requestRenderAll()
             const el = fabricCanvas.upperCanvasEl
             const br = el.getBoundingClientRect()
             const sx = br.width / args.canvasW
@@ -294,6 +329,7 @@ export function PDFViewer() {
           onPdfLinkGeometryCommit: (linkId, position, size) => {
             store().updatePdfLink(linkId, { position, size })
           },
+          onManualHistoryAdd: (o) => historyApi.manualRecordAdd(o),
         },
       )
 
@@ -304,6 +340,10 @@ export function PDFViewer() {
       )
 
       if (signal.aborted) {
+        if (detachFabricHistory) {
+          detachFabricHistory()
+          detachFabricHistory = null
+        }
         detachFabricTools()
         detachFabricTools = null
         await fabricCanvas.dispose()
@@ -323,6 +363,10 @@ export function PDFViewer() {
 
       const inst = fabricInstanceRef.current
 
+      if (detachFabricHistory) {
+        detachFabricHistory()
+        detachFabricHistory = null
+      }
       if (detachFabricTools) {
         detachFabricTools()
         detachFabricTools = null
@@ -351,7 +395,9 @@ export function PDFViewer() {
   useEffect(() => {
     if (!overlayCanvas) return
     applyCanvasToolMode(overlayCanvas, activeTool, annotateVariant)
-    applyPdfLinksLockState(overlayCanvas, activeTool === 'links')
+    fabricHistoryRuntime.runSuppressed(() => {
+      applyPdfLinksLockState(overlayCanvas, activeTool === 'links')
+    })
   }, [overlayCanvas, activeTool, annotateVariant])
 
   useEffect(() => {
@@ -403,12 +449,14 @@ export function PDFViewer() {
       .getState()
       .formFields.find((x) => x.id === selectedFormFieldId)
     if (!f || f.page !== currentPage) return
-    refreshFabricFormField(
-      overlayCanvas,
-      f,
-      overlayCanvas.getWidth(),
-      overlayCanvas.getHeight(),
-    )
+    fabricHistoryRuntime.runSuppressed(() => {
+      refreshFabricFormField(
+        overlayCanvas,
+        f,
+        overlayCanvas.getWidth(),
+        overlayCanvas.getHeight(),
+      )
+    })
   }, [
     fieldRefreshKey,
     selectedFormFieldId,
@@ -451,6 +499,47 @@ export function PDFViewer() {
     clearPendingImageInsert,
     setActiveTool,
   ])
+
+  useEffect(() => {
+    if (!overlayCanvas) return
+    const cw = overlayCanvas.getWidth()
+    const ch = overlayCanvas.getHeight()
+    lastScenePointerRef.current = { x: cw / 2, y: ch / 2 }
+
+    const onMove = (opt: TPointerEventInfo) => {
+      const p = opt.scenePoint
+      if (p) {
+        lastScenePointerRef.current = { x: p.x, y: p.y }
+      }
+    }
+    overlayCanvas.on('mouse:move', onMove)
+    return () => {
+      overlayCanvas.off('mouse:move', onMove)
+    }
+  }, [overlayCanvas])
+
+  useEffect(() => {
+    if (!pendingSignature || !overlayCanvas) return
+    const { dataUrl, placeAtCursor } = pendingSignature
+    clearPendingSignatureDataUrl()
+    const pt = lastScenePointerRef.current
+    const placement =
+      placeAtCursor && Number.isFinite(pt.x) && Number.isFinite(pt.y)
+        ? ({ mode: 'scene' as const, x: pt.x, y: pt.y })
+        : ({ mode: 'center' as const })
+    void (async () => {
+      try {
+        await addFabricImageFromDataUrl(
+          overlayCanvas,
+          dataUrl,
+          'Signature',
+          placement,
+        )
+      } catch (err) {
+        console.error('[PDFViewer] signature insert failed', err)
+      }
+    })()
+  }, [pendingSignature, overlayCanvas, clearPendingSignatureDataUrl])
 
   const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
     if (!pickImageFilesFromDataTransfer(e.dataTransfer).length) return

@@ -20,6 +20,11 @@ import {
   isFormGhostObject,
 } from './fabricFormField'
 import {
+  defaultLabelForAnnotate,
+  defaultLabelForShapeData,
+  markFabricHistoryUser,
+} from './fabricHistoryHelpers'
+import {
   fabricLinkToNormalized,
   getPdfLinkId,
   isPdfLinkObject,
@@ -92,7 +97,11 @@ export const WHITEOUT_DEFAULTS = {
   opacity: 1,
 } as const
 
-function finalizeOverlayObject(canvas: Canvas, obj: FabricObject) {
+function finalizeOverlayObject(
+  canvas: Canvas,
+  obj: FabricObject,
+  manualHistory?: (o: FabricObject) => void,
+) {
   obj.set({
     selectable: true,
     evented: true,
@@ -101,6 +110,20 @@ function finalizeOverlayObject(canvas: Canvas, obj: FabricObject) {
   })
   obj.setCoords()
   canvas.bringObjectToFront(obj)
+
+  if (manualHistory) {
+    const d = (obj as FabricObject & { data?: { tool?: string } }).data
+    if (d?.tool === 'whiteout') {
+      markFabricHistoryUser(obj, 'whiteout', 'Whiteout')
+      manualHistory(obj)
+    } else if (d?.tool === 'shape') {
+      markFabricHistoryUser(obj, 'shape', defaultLabelForShapeData(obj))
+      manualHistory(obj)
+    } else if (d?.tool === 'annotate') {
+      markFabricHistoryUser(obj, 'annotation', defaultLabelForAnnotate(obj))
+      manualHistory(obj)
+    }
+  }
 }
 
 function clampScene(n: number, lo: number, hi: number): number {
@@ -218,6 +241,7 @@ export function attachFabricCanvasTools(
       position: { x: number; y: number },
       size: { w: number; h: number },
     ) => void
+    onManualHistoryAdd?: (obj: FabricObject) => void
   },
 ): () => void {
   let drag: DragState | null = null
@@ -265,6 +289,7 @@ export function attachFabricCanvasTools(
         selectable: false,
         evented: false,
       })
+      Object.assign(temp, { data: { dragPreview: true } })
       canvas.add(temp)
       drag = { kind: 'linkBox', sx: x, sy: y, temp }
       return
@@ -281,6 +306,7 @@ export function attachFabricCanvasTools(
         editable: true,
         objectCaching: false,
       })
+      markFabricHistoryUser(t, 'text', 'Type your text')
       canvas.add(t)
       canvas.setActiveObject(t)
       canvas.requestRenderAll()
@@ -321,6 +347,7 @@ export function attachFabricCanvasTools(
       Object.assign(g, {
         data: { tool: 'commentPin', commentId: id },
       })
+      markFabricHistoryUser(g, 'annotation', 'Comment')
       canvas.add(g)
       finalizeOverlayObject(canvas, g)
       canvas.setActiveObject(g)
@@ -374,7 +401,7 @@ export function attachFabricCanvasTools(
         selectable: false,
         evented: true,
       })
-      Object.assign(temp, { data: { tool: 'whiteout' } })
+      Object.assign(temp, { data: { tool: 'whiteout', dragPreview: true } })
       canvas.add(temp)
       drag = { kind: 'box', mode: 'whiteout', sx: x, sy: y, temp }
       return
@@ -389,7 +416,9 @@ export function attachFabricCanvasTools(
           objectCaching: false,
           selectable: false,
         })
-        Object.assign(temp, { data: { tool: 'shape', variant: sv } })
+        Object.assign(temp, {
+          data: { tool: 'shape', variant: sv, dragPreview: true },
+        })
         canvas.add(temp)
         drag = {
           kind: 'line',
@@ -413,7 +442,9 @@ export function attachFabricCanvasTools(
         objectCaching: false,
         selectable: false,
       })
-      Object.assign(temp, { data: { tool: 'shape', variant: sv } })
+      Object.assign(temp, {
+        data: { tool: 'shape', variant: sv, dragPreview: true },
+      })
       canvas.add(temp)
       drag = {
         kind: 'box',
@@ -439,7 +470,9 @@ export function attachFabricCanvasTools(
           objectCaching: false,
           selectable: false,
         })
-        Object.assign(temp, { data: { tool: 'annotate', variant: 'highlight' } })
+        Object.assign(temp, {
+          data: { tool: 'annotate', variant: 'highlight', dragPreview: true },
+        })
         canvas.add(temp)
         drag = { kind: 'box', mode: 'annotate', annotateVariant: av, sx: x, sy: y, temp }
         return
@@ -454,9 +487,18 @@ export function attachFabricCanvasTools(
         objectCaching: false,
         selectable: false,
       })
-      Object.assign(temp, { data: { tool: 'annotate', variant: av } })
+      Object.assign(temp, {
+        data: { tool: 'annotate', variant: av, dragPreview: true },
+      })
       canvas.add(temp)
-      drag = { kind: 'box', mode: 'annotate', annotateVariant: av, sx: x, sy: y, temp }
+      drag = {
+        kind: 'box',
+        mode: 'annotate',
+        annotateVariant: av,
+        sx: x,
+        sy: y,
+        temp,
+      }
     }
   }
 
@@ -533,6 +575,7 @@ export function attachFabricCanvasTools(
           padding: 10,
         })
         Object.assign(line, { data: { tool: 'shape', variant: 'line' } })
+        markFabricHistoryUser(line, 'shape', 'Line')
         canvas.add(line)
         finalizeOverlayObject(canvas, line)
         canvas.setActiveObject(line)
@@ -549,6 +592,7 @@ export function attachFabricCanvasTools(
         padding: 10,
       })
       Object.assign(path, { data: { tool: 'shape', variant: 'arrow' } })
+      markFabricHistoryUser(path, 'shape', 'Arrow')
       canvas.add(path)
       finalizeOverlayObject(canvas, path)
       canvas.setActiveObject(path)
@@ -581,6 +625,7 @@ export function attachFabricCanvasTools(
         objectCaching: false,
       })
       Object.assign(ellipse, { data: { tool: 'shape', variant: 'circle' } })
+      markFabricHistoryUser(ellipse, 'shape', 'Ellipse')
       canvas.add(ellipse)
       finalizeOverlayObject(canvas, ellipse)
       canvas.setActiveObject(ellipse)
@@ -597,6 +642,7 @@ export function attachFabricCanvasTools(
         padding: 10,
       })
       Object.assign(line, { data: { tool: 'annotate', variant: 'underline' } })
+      markFabricHistoryUser(line, 'annotation', 'Underline')
       canvas.add(line)
       finalizeOverlayObject(canvas, line)
       canvas.setActiveObject(line)
@@ -614,6 +660,7 @@ export function attachFabricCanvasTools(
         padding: 10,
       })
       Object.assign(line, { data: { tool: 'annotate', variant: 'strike' } })
+      markFabricHistoryUser(line, 'annotation', 'Strikethrough')
       canvas.add(line)
       finalizeOverlayObject(canvas, line)
       canvas.setActiveObject(line)
@@ -621,7 +668,7 @@ export function attachFabricCanvasTools(
       return
     }
 
-    finalizeOverlayObject(canvas, temp)
+    finalizeOverlayObject(canvas, temp, callbacks.onManualHistoryAdd)
     canvas.setActiveObject(temp)
     canvas.requestRenderAll()
   }

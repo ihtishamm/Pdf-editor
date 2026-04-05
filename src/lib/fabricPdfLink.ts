@@ -1,4 +1,6 @@
 import { Rect, type Canvas, type FabricObject } from 'fabric'
+import { fabricHistoryRuntime } from './fabricHistoryRuntime'
+import { markFabricHistoryUser } from './fabricHistoryHelpers'
 import type { PdfLinkEntry } from '../types/pdfLinks'
 
 export const PDF_LINK_TOOL = 'pdfLink' as const
@@ -49,6 +51,7 @@ export function createFabricPdfLink(
   Object.assign(r, {
     data: { tool: PDF_LINK_TOOL, linkId: entry.id },
   })
+  markFabricHistoryUser(r, 'link', 'Link')
   r.setCoords()
   return r
 }
@@ -110,21 +113,23 @@ export function addPdfLinksToCanvas(
       .getObjects()
       .find((o) => getPdfLinkId(o) === entry.id)
     if (existing) {
-      const r = existing as Rect
-      r.set({
-        scaleX: 1,
-        scaleY: 1,
-        left: entry.position.x * canvasW,
-        top: entry.position.y * canvasH,
-        width: Math.max(2, entry.size.w * canvasW),
-        height: Math.max(2, entry.size.h * canvasH),
-        ...PDF_LINK_RECT_STYLE,
-        selectable: linksToolActive,
-        evented: linksToolActive,
-        hasControls: linksToolActive,
-        hasBorders: linksToolActive,
+      fabricHistoryRuntime.runSuppressed(() => {
+        const r = existing as Rect
+        r.set({
+          scaleX: 1,
+          scaleY: 1,
+          left: entry.position.x * canvasW,
+          top: entry.position.y * canvasH,
+          width: Math.max(2, entry.size.w * canvasW),
+          height: Math.max(2, entry.size.h * canvasH),
+          ...PDF_LINK_RECT_STYLE,
+          selectable: linksToolActive,
+          evented: linksToolActive,
+          hasControls: linksToolActive,
+          hasBorders: linksToolActive,
+        })
+        r.setCoords()
       })
-      r.setCoords()
       continue
     }
     const r = createFabricPdfLink(entry, canvasW, canvasH, linksToolActive)

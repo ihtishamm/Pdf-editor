@@ -126,7 +126,10 @@ export function createFabricFormField(
     objectCaching: false,
     layoutManager: new LayoutManager(new FixedLayout()),
   })
-  const data: FormFieldData = { tool: FORM_TOOL, fieldId: meta.id }
+  const data: FormFieldData & { skipFabricHistory?: boolean } = {
+    tool: FORM_TOOL,
+    fieldId: meta.id,
+  }
   Object.assign(g, { data })
   return g
 }
@@ -158,6 +161,8 @@ export function addFormFieldsToCanvas(
   for (const f of fields) {
     if (f.page !== page) continue
     const g = createFabricFormField(f, canvasW, canvasH)
+    const gd = (g as Group & { data?: { skipFabricHistory?: boolean } }).data
+    if (gd) gd.skipFabricHistory = true
     g.set({
       selectable: true,
       evented: true,
