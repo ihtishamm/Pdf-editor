@@ -23,7 +23,11 @@ import {
 import type { ReactNode } from 'react'
 import { useRef, useState } from 'react'
 import { usePdfEditorStore } from '../store/pdfEditorStore'
-import type { AnnotateVariant, ShapeVariant } from '../types/editorTools'
+import type {
+  AnnotateVariant,
+  FormFieldVariant,
+  ShapeVariant,
+} from '../types/editorTools'
 
 const NAV_LINKS = [
   'All Tools',
@@ -49,6 +53,14 @@ const ANNOTATE_OPTIONS: { id: AnnotateVariant; label: string }[] = [
   { id: 'comment', label: 'Comment' },
 ]
 
+const FORM_OPTIONS: { id: FormFieldVariant; label: string }[] = [
+  { id: 'text', label: 'Text Field' },
+  { id: 'checkbox', label: 'Checkbox' },
+  { id: 'radio', label: 'Radio Button' },
+  { id: 'dropdown', label: 'Dropdown' },
+  { id: 'button', label: 'Button' },
+]
+
 type EditorShellProps = {
   children: ReactNode
   thumbnailsOpen: boolean
@@ -61,6 +73,7 @@ export function EditorShell({
   onToggleThumbnails,
 }: EditorShellProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   const pdfFileName = usePdfEditorStore((s) => s.pdfFileName)
   const currentPage = usePdfEditorStore((s) => s.currentPage)
@@ -76,9 +89,15 @@ export function EditorShell({
   const annotateVariant = usePdfEditorStore((s) => s.annotateVariant)
   const setAnnotateVariant = usePdfEditorStore((s) => s.setAnnotateVariant)
   const setCommentPanelOpen = usePdfEditorStore((s) => s.setCommentPanelOpen)
+  const enqueueImageInsert = usePdfEditorStore((s) => s.enqueueImageInsert)
+  const pdfSourceBytes = usePdfEditorStore((s) => s.pdfSourceBytes)
+  const formFields = usePdfEditorStore((s) => s.formFields)
+  const formFieldVariant = usePdfEditorStore((s) => s.formFieldVariant)
+  const setFormFieldVariant = usePdfEditorStore((s) => s.setFormFieldVariant)
 
   const [shapesOpen, setShapesOpen] = useState(false)
   const [annotateOpen, setAnnotateOpen] = useState(false)
+  const [formsOpen, setFormsOpen] = useState(false)
 
   return (
     <div className="relative flex min-h-dvh flex-col bg-[#f3f3f3] text-[#333]">
@@ -193,6 +212,7 @@ export function EditorShell({
                 onClick={() => {
                   setShapesOpen((o) => !o)
                   setAnnotateOpen(false)
+                  setFormsOpen(false)
                 }}
                 className={`flex min-h-[40px] items-center gap-1 px-3 py-2 text-sm text-[#333] ${
                   activeTool === 'shapes' ? 'bg-[#f0f8ff]' : ''
@@ -237,6 +257,7 @@ export function EditorShell({
                 onClick={() => {
                   setAnnotateOpen((o) => !o)
                   setShapesOpen(false)
+                  setFormsOpen(false)
                 }}
                 className={`flex min-h-[40px] items-center gap-1 px-3 py-2 text-sm text-[#333] ${
                   activeTool === 'annotate' ? 'bg-[#f0f8ff]' : ''
@@ -288,27 +309,106 @@ export function EditorShell({
               Draw
             </button>
           </div>
-          <div className="inline-flex overflow-hidden rounded-md border border-[#e0e0e0] bg-[#fafafa] text-[#aaa]">
-            {(
-              [
-                ['Links', Link2],
-                ['Forms', ListChecks],
-                ['Images', Image],
-                ['Sign', Pen],
-                ['Undo', Undo2],
-              ] as const
-            ).map(([label, Icon]) => (
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/jpg,image/svg+xml,.png,.jpg,.jpeg,.svg"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) {
+                enqueueImageInsert(f)
+                setActiveTool('select')
+              }
+              e.target.value = ''
+            }}
+          />
+          <div className="inline-flex overflow-visible rounded-md border border-[#e0e0e0] bg-[#fafafa]">
+            <button
+              type="button"
+              disabled
+              aria-disabled
+              className="flex min-h-[40px] cursor-not-allowed items-center gap-1.5 border-r border-[#e8e8e8] px-2 py-2 text-sm text-[#aaa]"
+            >
+              <Link2 className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+              <span className="hidden sm:inline">Links</span>
+            </button>
+            <div className="relative border-r border-[#e8e8e8]">
               <button
-                key={label}
                 type="button"
-                disabled
-                aria-disabled
-                className="flex min-h-[40px] cursor-not-allowed items-center gap-1.5 border-l border-[#e8e8e8] px-2 py-2 text-sm first:border-l-0"
+                aria-expanded={formsOpen}
+                aria-pressed={activeTool === 'forms'}
+                onClick={() => {
+                  setFormsOpen((o) => !o)
+                  setShapesOpen(false)
+                  setAnnotateOpen(false)
+                }}
+                className={`flex min-h-[40px] items-center gap-1 px-2 py-2 text-sm text-[#333] ${
+                  activeTool === 'forms' ? 'bg-[#f0f8ff]' : 'bg-white'
+                }`}
               >
-                <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                <span className="hidden sm:inline">{label}</span>
+                <ListChecks
+                  className="h-4 w-4 shrink-0 text-[#40a9ff]"
+                  strokeWidth={1.75}
+                />
+                <span className="hidden sm:inline">Forms</span>
+                <span className="text-[10px] text-[#888]" aria-hidden>
+                  ▾
+                </span>
               </button>
-            ))}
+              {formsOpen ? (
+                <div
+                  className="absolute right-0 top-full z-[100] mt-1 min-w-[200px] rounded border border-[#b3d7ff] bg-white py-1 shadow-lg"
+                  role="menu"
+                >
+                  {FORM_OPTIONS.map(({ id, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="menuitem"
+                      className={`block w-full px-3 py-2 text-left text-sm hover:bg-[#f0f8ff] ${
+                        formFieldVariant === id && activeTool === 'forms'
+                          ? 'bg-[#e6f4ff]'
+                          : ''
+                      }`}
+                      onClick={() => {
+                        setFormFieldVariant(id)
+                        setActiveTool('forms')
+                        setFormsOpen(false)
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => imageInputRef.current?.click()}
+              className="flex min-h-[40px] items-center gap-1.5 border-r border-[#e8e8e8] bg-white px-2 py-2 text-sm text-[#333] hover:bg-[#f0f8ff]"
+            >
+              <Image className="h-4 w-4 shrink-0 text-[#40a9ff]" strokeWidth={1.75} />
+              <span className="hidden sm:inline">Images</span>
+            </button>
+            <button
+              type="button"
+              disabled
+              aria-disabled
+              className="flex min-h-[40px] cursor-not-allowed items-center gap-1.5 border-r border-[#e8e8e8] px-2 py-2 text-sm text-[#aaa]"
+            >
+              <Pen className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+              <span className="hidden sm:inline">Sign</span>
+            </button>
+            <button
+              type="button"
+              disabled
+              aria-disabled
+              className="flex min-h-[40px] cursor-not-allowed items-center gap-1.5 px-2 py-2 text-sm text-[#aaa]"
+            >
+              <Undo2 className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+              <span className="hidden sm:inline">Undo</span>
+            </button>
           </div>
         </div>
       </div>
@@ -417,7 +517,38 @@ export function EditorShell({
       <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
         <button
           type="button"
-          className="pointer-events-auto flex items-center gap-2 rounded-lg bg-[#00a67e] px-10 py-3 text-base font-medium text-white shadow-lg hover:bg-[#00916d]"
+          disabled={!pdfSourceBytes}
+          onClick={() => {
+            if (!pdfSourceBytes) return
+            void (async () => {
+              try {
+                const { exportPdfWithFormFields } = await import(
+                  '../lib/pdfFormExport'
+                )
+                const out = await exportPdfWithFormFields(
+                  pdfSourceBytes,
+                  formFields,
+                )
+                const base = (pdfFileName || 'document').replace(
+                  /\.pdf$/i,
+                  '',
+                )
+                const fileName = `${base}-forms.pdf`
+                const blob = new Blob([out as BlobPart], {
+                  type: 'application/pdf',
+                })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = fileName
+                a.click()
+                URL.revokeObjectURL(url)
+              } catch (e) {
+                console.error('[EditorShell] export failed', e)
+              }
+            })()
+          }}
+          className="pointer-events-auto flex items-center gap-2 rounded-lg bg-[#00a67e] px-10 py-3 text-base font-medium text-white shadow-lg hover:bg-[#00916d] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Apply changes
           <ChevronRight className="h-5 w-5" />

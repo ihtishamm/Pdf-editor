@@ -1,10 +1,31 @@
 import { Canvas, IText, version as fabricVersion } from 'fabric'
-import { useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+} from 'react'
 import type { RenderTask } from 'pdfjs-dist'
 import { applyCanvasToolMode, attachFabricCanvasTools } from '../lib/fabricCanvasTools'
+import {
+  addFabricImageFromFile,
+  pickImageFilesFromDataTransfer,
+} from '../lib/insertFabricImage'
+import {
+  addFormFieldsToCanvas,
+  createFabricFormField,
+  getFormFieldId,
+  isFormFieldObject,
+  refreshFabricFormField,
+} from '../lib/fabricFormField'
 import { addPdfTextItemsToCanvas } from '../lib/pdfTextToFabric'
+import type { FormFieldType } from '../types/formFields'
 import { usePdfEditorStore } from '../store/pdfEditorStore'
 import { CommentPanel } from './CommentPanel'
+import { FormFieldFloatingToolbar } from './FormFieldFloatingToolbar'
+import { FormFieldPropertiesPanel } from './FormFieldPropertiesPanel'
+import { ImagePropertiesPanel } from './ImagePropertiesPanel'
 import { ShapePropertiesToolbar } from './ShapePropertiesToolbar'
 import { TextEditToolbar } from './TextEditToolbar'
 
@@ -24,6 +45,15 @@ export function PDFViewer() {
   const annotateVariant = usePdfEditorStore((s) => s.annotateVariant)
   const registerFabric = usePdfEditorStore((s) => s.registerFabric)
   const unregisterFabricPage = usePdfEditorStore((s) => s.unregisterFabricPage)
+  const pendingImageInsert = usePdfEditorStore((s) => s.pendingImageInsert)
+  const clearPendingImageInsert = usePdfEditorStore((s) => s.clearPendingImageInsert)
+  const enqueueImageInsert = usePdfEditorStore((s) => s.enqueueImageInsert)
+  const setActiveTool = usePdfEditorStore((s) => s.setActiveTool)
+  const formFields = usePdfEditorStore((s) => s.formFields)
+  const selectedFormFieldId = usePdfEditorStore((s) => s.selectedFormFieldId)
+  const selectedFormField = usePdfEditorStore((s) =>
+    s.formFields.find((f) => f.id === s.selectedFormFieldId),
+  )
 
   const measureRef = useRef<HTMLDivElement>(null)
   const fabricHostRef = useRef<HTMLDivElement>(null)
@@ -101,6 +131,9 @@ export function PDFViewer() {
         enableRetinaScaling: false,
         /** Required so hit-testing respects z-order; otherwise the active object (e.g. PDF IText) steals clicks from shapes above it. */
         preserveObjectStacking: true,
+        /** Fabric v7 defaults: non-uniform scale by default; hold Shift for aspect lock (`uniScaleKey`). */
+        uniformScaling: true,
+        uniScaleKey: 'shiftKey',
       })
 
       if (signal.aborted) {
@@ -115,19 +148,84 @@ export function PDFViewer() {
         return
       }
 
+      addFormFieldsToCanvas(
+        fabricCanvas,
+        usePdfEditorStore.getState().formFields,
+        currentPage,
+        w,
+        h,
+      )
+
+      if (signal.aborted) {
+        await fabricCanvas.dispose()
+        return
+      }
+
       const store = usePdfEditorStore.getState
+
       detachFabricTools = attachFabricCanvasTools(
         fabricCanvas,
         {
           getActiveTool: () => store().activeTool,
           getShapeVariant: () => store().shapeVariant,
           getAnnotateVariant: () => store().annotateVariant,
+          getFormFieldVariant: () => store().formFieldVariant,
           getCurrentPage: () => store().currentPage,
         },
         {
           addCommentAt: (p, sx, sy) => store().addCommentAt(p, sx, sy),
           onSelectionIText: (t) => {
             setSelectedIText(t)
+          },
+          onSelectionFormField: (id) => store().setSelectedFormFieldId(id),
+          onFormFieldBox: (args) => {
+            const s = store()
+            const position = {
+              x: args.left / args.canvasW,
+              y: args.top / args.canvasH,
+            }
+            const size = {
+              w: args.width / args.canvasW,
+              h: args.height / args.canvasH,
+            }
+            const t = args.variant as FormFieldType
+            const meta = s.addFormField({
+              page: args.page,
+              type: t,
+              name: '',
+              position,
+              size,
+              options: t === 'dropdown' ? ['Option 1', 'Option 2'] : [],
+              required: false,
+              placeholder: '',
+              radioGroupName: '',
+              radioOptionId: '',
+              buttonLabel: t === 'button' ? 'Button' : '',
+              borderColor: '#dc2626',
+              textColor: '#9ca3af',
+              fontSize: 14,
+            })
+            const g = createFabricFormField(
+              meta,
+              fabricCanvas.getWidth(),
+              fabricCanvas.getHeight(),
+            )
+            g.set({
+              selectable: true,
+              evented: true,
+              hasControls: true,
+              hasBorders: true,
+            })
+            g.setCoords()
+            fabricCanvas.add(g)
+            fabricCanvas.bringObjectToFront(g)
+            fabricCanvas.setActiveObject(g)
+            fabricCanvas.requestRenderAll()
+            s.setSelectedFormFieldId(meta.id)
+            s.setActiveTool('select')
+          },
+          onFormFieldGeometryCommit: (fieldId, position, size) => {
+            store().updateFormField(fieldId, { position, size })
           },
         },
       )
@@ -156,12 +254,13 @@ export function PDFViewer() {
       setSelectedIText(null)
       setOverlayCanvas(null)
 
+      const inst = fabricInstanceRef.current
+
       if (detachFabricTools) {
         detachFabricTools()
         detachFabricTools = null
       }
 
-      const inst = fabricInstanceRef.current
       fabricInstanceRef.current = null
       fabricHostEl.replaceChildren()
 
@@ -187,23 +286,138 @@ export function PDFViewer() {
     applyCanvasToolMode(overlayCanvas, activeTool, annotateVariant)
   }, [overlayCanvas, activeTool, annotateVariant])
 
+  const fieldRefreshKey = selectedFormField
+    ? [
+        selectedFormField.name,
+        selectedFormField.required,
+        selectedFormField.placeholder,
+        selectedFormField.options.join('\u0001'),
+        selectedFormField.radioGroupName,
+        selectedFormField.radioOptionId,
+        selectedFormField.buttonLabel,
+        selectedFormField.borderColor,
+        selectedFormField.textColor,
+        selectedFormField.fontSize,
+      ].join('|')
+    : ''
+
+  useEffect(() => {
+    if (!fieldRefreshKey || !overlayCanvas || !selectedFormFieldId) return
+    const f = usePdfEditorStore
+      .getState()
+      .formFields.find((x) => x.id === selectedFormFieldId)
+    if (!f || f.page !== currentPage) return
+    refreshFabricFormField(
+      overlayCanvas,
+      f,
+      overlayCanvas.getWidth(),
+      overlayCanvas.getHeight(),
+    )
+  }, [
+    fieldRefreshKey,
+    selectedFormFieldId,
+    overlayCanvas,
+    currentPage,
+  ])
+
+  useEffect(() => {
+    if (!overlayCanvas) return
+    const valid = new Set(
+      formFields.filter((f) => f.page === currentPage).map((f) => f.id),
+    )
+    let removed = false
+    for (const o of [...overlayCanvas.getObjects()]) {
+      if (!isFormFieldObject(o)) continue
+      const id = getFormFieldId(o)
+      if (id && !valid.has(id)) {
+        overlayCanvas.remove(o)
+        removed = true
+      }
+    }
+    if (removed) overlayCanvas.requestRenderAll()
+  }, [formFields, overlayCanvas, currentPage])
+
+  useEffect(() => {
+    if (!pendingImageInsert || !overlayCanvas) return
+    const file = pendingImageInsert
+    clearPendingImageInsert()
+    void (async () => {
+      try {
+        await addFabricImageFromFile(overlayCanvas, file)
+        setActiveTool('select')
+      } catch (err) {
+        console.error('[PDFViewer] image insert failed', err)
+      }
+    })()
+  }, [
+    pendingImageInsert,
+    overlayCanvas,
+    clearPendingImageInsert,
+    setActiveTool,
+  ])
+
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    if (!pickImageFilesFromDataTransfer(e.dataTransfer).length) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+  }, [])
+
+  const handleDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      const files = pickImageFilesFromDataTransfer(e.dataTransfer)
+      if (!files.length) return
+      e.preventDefault()
+      e.stopPropagation()
+      const c = fabricInstanceRef.current
+      if (!c) {
+        enqueueImageInsert(files[0]!)
+        setActiveTool('select')
+        return
+      }
+      void (async () => {
+        for (const f of files) {
+          try {
+            await addFabricImageFromFile(c, f)
+          } catch (err) {
+            console.error('[PDFViewer] drop image failed', err)
+          }
+        }
+        setActiveTool('select')
+      })()
+    },
+    [enqueueImageInsert, setActiveTool],
+  )
+
   return (
-    <div ref={measureRef} className="flex w-full min-w-0 justify-center px-4 pb-32 pt-6">
-      <TextEditToolbar canvas={overlayCanvas} target={selectedIText} />
-      <ShapePropertiesToolbar canvas={overlayCanvas} activeTool={activeTool} />
-      <CommentPanel />
-      <div className="relative inline-block max-w-full shadow-[0_4px_24px_rgba(0,0,0,0.12)]">
-        <canvas
-          ref={pdfCanvasRef}
-          className="relative z-10 block max-w-full bg-white"
-          aria-hidden
-        />
+    <div className="flex min-w-0 flex-1">
+      <div
+        ref={measureRef}
+        className="flex min-w-0 flex-1 justify-center px-4 pb-32 pt-6"
+      >
+        <TextEditToolbar canvas={overlayCanvas} target={selectedIText} />
+        <FormFieldFloatingToolbar canvas={overlayCanvas} activeTool={activeTool} />
+        <ShapePropertiesToolbar canvas={overlayCanvas} activeTool={activeTool} />
+        <ImagePropertiesPanel canvas={overlayCanvas} activeTool={activeTool} />
+        <CommentPanel />
         <div
-          ref={fabricHostRef}
-          className="pdf-editor-fabric-host absolute inset-0 z-20"
-          aria-hidden
-        />
+          className="relative inline-block max-w-full shadow-[0_4px_24px_rgba(0,0,0,0.12)]"
+          onDragEnter={handleDragOver}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          <canvas
+            ref={pdfCanvasRef}
+            className="relative z-10 block max-w-full bg-white"
+            aria-hidden
+          />
+          <div
+            ref={fabricHostRef}
+            className="pdf-editor-fabric-host absolute inset-0 z-20"
+            aria-hidden
+          />
+        </div>
       </div>
+      <FormFieldPropertiesPanel />
     </div>
   )
 }

@@ -12,12 +12,26 @@ import {
   type FabricObject,
   type TPointerEventInfo,
 } from 'fabric'
-import type { AnnotateVariant, EditorTool, ShapeVariant } from '../types/editorTools'
+import {
+  FORM_GHOST_TOOL,
+  formFieldObjectToNormalized,
+  getFormFieldId,
+  isFormFieldObject,
+  isFormGhostObject,
+} from './fabricFormField'
+import { defaultFormFieldPixelSize } from './formFieldPlacement'
+import type {
+  AnnotateVariant,
+  EditorTool,
+  FormFieldVariant,
+  ShapeVariant,
+} from '../types/editorTools'
 
 type Getters = {
   getActiveTool: () => EditorTool
   getShapeVariant: () => ShapeVariant
   getAnnotateVariant: () => AnnotateVariant
+  getFormFieldVariant: () => FormFieldVariant
   getCurrentPage: () => number
 }
 
@@ -77,6 +91,69 @@ function finalizeOverlayObject(canvas: Canvas, obj: FabricObject) {
   canvas.bringObjectToFront(obj)
 }
 
+function clampScene(n: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, n))
+}
+
+export function removeFormPlacementGhost(canvas: Canvas): void {
+  for (const o of [...canvas.getObjects()]) {
+    if (isFormGhostObject(o)) {
+      canvas.remove(o)
+    }
+  }
+}
+
+function syncFormPlacementGhost(
+  canvas: Canvas,
+  variant: FormFieldVariant,
+  pointerX: number,
+  pointerY: number,
+  fw: number,
+  fh: number,
+  cw: number,
+  ch: number,
+): void {
+  const left = clampScene(pointerX, 0, Math.max(0, cw - fw))
+  const top = clampScene(pointerY, 0, Math.max(0, ch - fh))
+  const rx = variant === 'radio' ? Math.min(fw, fh) / 2 : 3
+  const existing = canvas.getObjects().find(isFormGhostObject) as Group | undefined
+  if (!existing) {
+    const rect = new Rect({
+      left: 0,
+      top: 0,
+      width: fw,
+      height: fh,
+      fill: 'rgba(37, 99, 235, 0.2)',
+      stroke: '#2563eb',
+      strokeWidth: 1,
+      strokeDashArray: [6, 4],
+      rx,
+      ry: rx,
+      objectCaching: false,
+      selectable: false,
+      evented: false,
+    })
+    const g = new Group([rect], {
+      left,
+      top,
+      selectable: false,
+      evented: false,
+      objectCaching: false,
+      opacity: 0.92,
+    })
+    Object.assign(g, { data: { tool: FORM_GHOST_TOOL } })
+    canvas.add(g)
+    canvas.bringObjectToFront(g)
+    return
+  }
+  existing.set({ left, top })
+  const inner = existing.item(0) as Rect
+  inner.set({ width: fw, height: fh, rx, ry: rx })
+  existing.setCoords()
+  inner.setCoords()
+  canvas.bringObjectToFront(existing)
+}
+
 function arrowPathD(sx: number, sy: number, ex: number, ey: number): string {
   const angle = Math.atan2(ey - sy, ex - sx)
   const headLen = 14
@@ -98,19 +175,41 @@ export function attachFabricCanvasTools(
   callbacks: {
     addCommentAt: (page: number, sceneX: number, sceneY: number) => string
     onSelectionIText: (t: IText | null) => void
+    onSelectionFormField: (fieldId: string | null) => void
+    onFormFieldBox: (args: {
+      page: number
+      left: number
+      top: number
+      width: number
+      height: number
+      canvasW: number
+      canvasH: number
+      variant: FormFieldVariant
+    }) => void
+    onFormFieldGeometryCommit: (
+      fieldId: string,
+      position: { x: number; y: number },
+      size: { w: number; h: number },
+    ) => void
   },
 ): () => void {
   let drag: DragState | null = null
 
-  const onSelectionCreated = () => syncIText()
-  const onSelectionUpdated = () => syncIText()
+  const onSelectionCreated = () => syncSelection()
+  const onSelectionUpdated = () => syncSelection()
   const onSelectionCleared = () => {
     callbacks.onSelectionIText(null)
+    callbacks.onSelectionFormField(null)
   }
 
-  function syncIText() {
+  function syncSelection() {
     const obj = canvas.getActiveObject()
     callbacks.onSelectionIText(obj instanceof IText ? obj : null)
+    const d = (obj as FabricObject & { data?: { tool?: string; fieldId?: string } })
+      ?.data
+    callbacks.onSelectionFormField(
+      d?.tool === 'formField' && d.fieldId ? d.fieldId : null,
+    )
   }
 
   const onMouseDown = (opt: TPointerEventInfo) => {
@@ -179,7 +278,35 @@ export function attachFabricCanvasTools(
 
     if (tool === 'select') return
 
-    if (opt.target && tool !== 'annotate') return
+    if (
+      opt.target &&
+      tool !== 'annotate' &&
+      !isFormGhostObject(opt.target)
+    ) {
+      return
+    }
+
+    if (tool === 'forms') {
+      const variant = getters.getFormFieldVariant()
+      const { width: fw, height: fh } = defaultFormFieldPixelSize(variant)
+      const cw = canvas.getWidth()
+      const ch = canvas.getHeight()
+      const left = clampScene(x, 0, Math.max(0, cw - fw))
+      const top = clampScene(y, 0, Math.max(0, ch - fh))
+      callbacks.onFormFieldBox({
+        page: getters.getCurrentPage(),
+        left,
+        top,
+        width: fw,
+        height: fh,
+        canvasW: cw,
+        canvasH: ch,
+        variant,
+      })
+      removeFormPlacementGhost(canvas)
+      canvas.requestRenderAll()
+      return
+    }
 
     if (tool === 'whiteout') {
       const temp = new Rect({
@@ -282,6 +409,16 @@ export function attachFabricCanvasTools(
   }
 
   const onMouseMove = (opt: TPointerEventInfo) => {
+    const tool = getters.getActiveTool()
+    if (tool === 'forms') {
+      const variant = getters.getFormFieldVariant()
+      const { width: fw, height: fh } = defaultFormFieldPixelSize(variant)
+      const { x, y } = opt.scenePoint
+      const cw = canvas.getWidth()
+      const ch = canvas.getHeight()
+      syncFormPlacementGhost(canvas, variant, x, y, fw, fh, cw, ch)
+      canvas.requestRenderAll()
+    }
     if (!drag) return
     const { x, y } = opt.scenePoint
     if (drag.kind === 'box') {
@@ -406,21 +543,35 @@ export function attachFabricCanvasTools(
     canvas.requestRenderAll()
   }
 
+  const onObjectModified = (opt: { target?: FabricObject }) => {
+    const t = opt.target
+    if (!t || !isFormFieldObject(t)) return
+    const id = getFormFieldId(t)
+    if (!id) return
+    const cw = canvas.getWidth()
+    const ch = canvas.getHeight()
+    const { position, size } = formFieldObjectToNormalized(t, cw, ch)
+    callbacks.onFormFieldGeometryCommit(id, position, size)
+  }
+
   canvas.on('selection:created', onSelectionCreated)
   canvas.on('selection:updated', onSelectionUpdated)
   canvas.on('selection:cleared', onSelectionCleared)
   canvas.on('mouse:down', onMouseDown)
   canvas.on('mouse:move', onMouseMove)
   canvas.on('mouse:up', onMouseUp)
+  canvas.on('object:modified', onObjectModified)
 
   return () => {
     drag = null
+    removeFormPlacementGhost(canvas)
     canvas.off('selection:created', onSelectionCreated)
     canvas.off('selection:updated', onSelectionUpdated)
     canvas.off('selection:cleared', onSelectionCleared)
     canvas.off('mouse:down', onMouseDown)
     canvas.off('mouse:move', onMouseMove)
     canvas.off('mouse:up', onMouseUp)
+    canvas.off('object:modified', onObjectModified)
   }
 }
 
@@ -443,10 +594,13 @@ export function applyCanvasToolMode(
    * Keep target finding on for whiteout / shapes / annotate so existing overlays stay clickable
    * while those tools are active. `selection` stays off for those tools so an empty click does not
    * start a marquee (Fabric still activates objects via setActiveObject when a target is hit).
-   * Skip finding only for freehand draw and comment placement (clicks should miss objects).
+   * Skip finding for draw, comment placement, and forms placement (ghost + click-to-add).
    */
-  canvas.skipTargetFind = tool === 'draw' || isCommentMode
-  if (tool === 'text' || tool === 'draw') {
+  canvas.skipTargetFind = tool === 'draw' || isCommentMode || tool === 'forms'
+  if (tool !== 'forms') {
+    removeFormPlacementGhost(canvas)
+  }
+  if (tool === 'text' || tool === 'draw' || tool === 'forms') {
     canvas.defaultCursor = 'crosshair'
   } else if (isCommentMode) {
     canvas.defaultCursor = 'copy'

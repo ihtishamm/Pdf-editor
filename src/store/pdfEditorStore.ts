@@ -1,10 +1,12 @@
 import { Canvas } from 'fabric'
 import { getDocument, type PDFDocumentProxy } from 'pdfjs-dist'
 import { create } from 'zustand'
+import type { FormFieldMeta } from '../types/formFields'
 import type {
   AnnotateVariant,
   CommentEntry,
   EditorTool,
+  FormFieldVariant,
   ShapeVariant,
 } from '../types/editorTools'
 
@@ -12,10 +14,12 @@ const MIN_ZOOM = 0.5
 const MAX_ZOOM = 3
 const ZOOM_STEP = 0.1
 
-export type { AnnotateVariant, CommentEntry, EditorTool, ShapeVariant }
+export type { AnnotateVariant, CommentEntry, EditorTool, FormFieldVariant, ShapeVariant }
 
 export type PdfEditorState = {
   pdf: PDFDocumentProxy | null
+  /** Original bytes for pdf-lib export (parallel to PDF.js proxy). */
+  pdfSourceBytes: Uint8Array | null
   pdfFileName: string
   currentPage: number
   totalPages: number
@@ -23,11 +27,16 @@ export type PdfEditorState = {
   activeTool: EditorTool
   shapeVariant: ShapeVariant
   annotateVariant: AnnotateVariant
+  formFieldVariant: FormFieldVariant
+  formFields: FormFieldMeta[]
+  selectedFormFieldId: string | null
   comments: CommentEntry[]
   /** Comment id open in sidebar (new or existing). */
   activeCommentId: string | null
   commentPanelOpen: boolean
   fabricByPage: Map<number, Canvas>
+  /** Picked up by PDFViewer to insert on the current page’s Fabric canvas. */
+  pendingImageInsert: File | null
 }
 
 export type PdfEditorActions = {
@@ -41,6 +50,11 @@ export type PdfEditorActions = {
   setActiveTool: (tool: EditorTool) => void
   setShapeVariant: (v: ShapeVariant) => void
   setAnnotateVariant: (v: AnnotateVariant) => void
+  setFormFieldVariant: (v: FormFieldVariant) => void
+  addFormField: (meta: Omit<FormFieldMeta, 'id'>) => FormFieldMeta
+  updateFormField: (id: string, patch: Partial<FormFieldMeta>) => void
+  removeFormField: (id: string) => void
+  setSelectedFormFieldId: (id: string | null) => void
   addCommentAt: (page: number, sceneX: number, sceneY: number) => string
   updateCommentBody: (id: string, body: string) => void
   removeComment: (id: string) => void
@@ -51,6 +65,8 @@ export type PdfEditorActions = {
   unregisterFabricPage: (page: number) => void
   disposeAllFabric: () => Promise<void>
   reset: () => Promise<void>
+  enqueueImageInsert: (file: File) => void
+  clearPendingImageInsert: () => void
 }
 
 function clampZoom(z: number): number {
@@ -59,6 +75,15 @@ function clampZoom(z: number): number {
 
 function newCommentId(): string {
   return `c-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function newFormFieldId(): string {
+  return `ff-${crypto.randomUUID()}`
+}
+
+function slugPdfName(prefix: string): string {
+  const s = `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`
+  return s.replace(/[^a-zA-Z0-9._-]/g, '_')
 }
 
 async function disposeAllFabricFromMap(
@@ -72,6 +97,7 @@ async function disposeAllFabricFromMap(
 export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
   (set, get) => ({
     pdf: null,
+    pdfSourceBytes: null,
     pdfFileName: '',
     currentPage: 1,
     totalPages: 0,
@@ -79,10 +105,14 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
     activeTool: 'select',
     shapeVariant: 'rectangle',
     annotateVariant: 'highlight',
+    formFieldVariant: 'text',
+    formFields: [],
+    selectedFormFieldId: null,
     comments: [],
     activeCommentId: null,
     commentPanelOpen: false,
     fabricByPage: new Map(),
+    pendingImageInsert: null,
 
     loadPdfFromBytes: async (data, fileName) => {
       const prev = get().pdf
@@ -92,20 +122,24 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         await prev.destroy()
       }
 
-      const copy = new Uint8Array(data)
-      const loadingTask = getDocument({ data: copy })
+      const sourceCopy = new Uint8Array(data)
+      const loadingTask = getDocument({ data: sourceCopy })
       const pdf = await loadingTask.promise
       set({
         pdf,
+        pdfSourceBytes: sourceCopy,
         pdfFileName: fileName,
         totalPages: pdf.numPages,
         currentPage: 1,
         fabricByPage: new Map(),
         zoomLevel: 1,
         activeTool: 'select',
+        formFields: [],
+        selectedFormFieldId: null,
         comments: [],
         activeCommentId: null,
         commentPanelOpen: false,
+        pendingImageInsert: null,
       })
     },
 
@@ -142,6 +176,69 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
     setShapeVariant: (v) => set({ shapeVariant: v }),
 
     setAnnotateVariant: (v) => set({ annotateVariant: v }),
+
+    setFormFieldVariant: (v) => set({ formFieldVariant: v }),
+
+    addFormField: (partial) => {
+      const id = newFormFieldId()
+      const type = partial.type
+      const uniqueName = slugPdfName(type)
+      const entry: FormFieldMeta = {
+        id,
+        page: partial.page,
+        type,
+        name: partial.name || uniqueName,
+        position: { ...partial.position },
+        size: { ...partial.size },
+        options:
+          type === 'dropdown'
+            ? partial.options?.length
+              ? [...partial.options]
+              : ['Option 1', 'Option 2']
+            : partial.options?.length
+              ? [...partial.options]
+              : [],
+        required: partial.required ?? false,
+        placeholder:
+          partial.placeholder ??
+          (type === 'text' || type === 'dropdown' ? 'Sample text' : ''),
+        radioGroupName:
+          partial.radioGroupName?.trim() || `group_${id.slice(3, 11)}`,
+        radioOptionId:
+          partial.radioOptionId?.trim() || slugPdfName('opt'),
+        buttonLabel:
+          partial.buttonLabel ??
+          (type === 'button' ? 'Button' : ''),
+        borderColor: partial.borderColor ?? '#dc2626',
+        textColor: partial.textColor ?? '#9ca3af',
+        fontSize: partial.fontSize ?? 14,
+      }
+      set((s) => ({ formFields: [...s.formFields, entry] }))
+      return entry
+    },
+
+    updateFormField: (id, patch) => {
+      set((s) => ({
+        formFields: s.formFields.map((f) => {
+          if (f.id !== id) return f
+          const next: FormFieldMeta = { ...f, ...patch }
+          if (patch.position) next.position = { ...f.position, ...patch.position }
+          if (patch.size) next.size = { ...f.size, ...patch.size }
+          if (patch.options) next.options = [...patch.options]
+          return next
+        }),
+      }))
+    },
+
+    removeFormField: (id) => {
+      set((s) => ({
+        formFields: s.formFields.filter((f) => f.id !== id),
+        selectedFormFieldId:
+          s.selectedFormFieldId === id ? null : s.selectedFormFieldId,
+      }))
+    },
+
+    setSelectedFormFieldId: (id) => set({ selectedFormFieldId: id }),
 
     addCommentAt: (page, sceneX, sceneY) => {
       const id = newCommentId()
@@ -216,6 +313,10 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
       set({ fabricByPage: new Map() })
     },
 
+    enqueueImageInsert: (file) => set({ pendingImageInsert: file }),
+
+    clearPendingImageInsert: () => set({ pendingImageInsert: null }),
+
     reset: async () => {
       const { pdf, fabricByPage } = get()
       await disposeAllFabricFromMap(fabricByPage)
@@ -224,6 +325,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
       }
       set({
         pdf: null,
+        pdfSourceBytes: null,
         pdfFileName: '',
         currentPage: 1,
         totalPages: 0,
@@ -231,10 +333,14 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         activeTool: 'select',
         shapeVariant: 'rectangle',
         annotateVariant: 'highlight',
+        formFieldVariant: 'text',
+        formFields: [],
+        selectedFormFieldId: null,
         comments: [],
         activeCommentId: null,
         commentPanelOpen: false,
         fabricByPage: new Map(),
+        pendingImageInsert: null,
       })
     },
   }),

@@ -6,6 +6,15 @@ export type EditorTool =
   | 'shapes'
   | 'annotate'
   | 'draw'
+  | 'forms'
+
+/** Active subtype when `activeTool === 'forms'` (Forms toolbar). */
+export type FormFieldVariant =
+  | 'text'
+  | 'checkbox'
+  | 'radio'
+  | 'dropdown'
+  | 'button'
 
 export type ShapeVariant = 'rectangle' | 'circle' | 'line' | 'arrow'
 
