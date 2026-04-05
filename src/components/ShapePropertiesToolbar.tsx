@@ -1,0 +1,292 @@
+import { Canvas, type FabricObject } from 'fabric'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import {
+  isAnnotateToolObject,
+  isOverlayPropertiesObject,
+  isShapeToolObject,
+  isWhiteoutObject,
+} from '../lib/fabricCanvasTools'
+import type { EditorTool } from '../types/editorTools'
+
+type ShapePropertiesToolbarProps = {
+  canvas: Canvas | null
+  activeTool: EditorTool
+}
+
+function colorToHex(input: string | undefined | null): string {
+  if (!input || input === 'transparent') return '#1f2937'
+  if (input.startsWith('#') && (input.length === 4 || input.length === 7)) {
+    return input
+  }
+  const m = String(input).match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i)
+  if (m) {
+    const r = Number(m[1]).toString(16).padStart(2, '0')
+    const g = Number(m[2]).toString(16).padStart(2, '0')
+    const b = Number(m[3]).toString(16).padStart(2, '0')
+    return `#${r}${g}${b}`
+  }
+  return '#1f2937'
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const h = hex.replace('#', '')
+  if (h.length === 3) {
+    return {
+      r: parseInt(h[0]! + h[0]!, 16),
+      g: parseInt(h[1]! + h[1]!, 16),
+      b: parseInt(h[2]! + h[2]!, 16),
+    }
+  }
+  if (h.length === 6) {
+    return {
+      r: parseInt(h.slice(0, 2), 16),
+      g: parseInt(h.slice(2, 4), 16),
+      b: parseInt(h.slice(4, 6), 16),
+    }
+  }
+  return null
+}
+
+function parseRgbaAlpha(fill: string): number {
+  const m = fill.match(
+    /rgba?\s*\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(?:,\s*([\d.]+)\s*)?\)/i,
+  )
+  if (!m) return 1
+  return m[1] !== undefined ? Number(m[1]) : 1
+}
+
+function buildRgbaFromHex(hex: string, alpha: number): string {
+  const rgb = hexToRgb(hex)
+  if (!rgb) return `rgba(255,255,255,${alpha})`
+  const a = Math.min(1, Math.max(0, alpha))
+  return `rgba(${rgb.r},${rgb.g},${rgb.b},${a})`
+}
+
+type OverlayKind = 'shape' | 'whiteout' | 'annotate-hl' | 'annotate-line'
+
+function getOverlayKind(o: FabricObject): OverlayKind | null {
+  if (isWhiteoutObject(o)) return 'whiteout'
+  if (isShapeToolObject(o)) return 'shape'
+  if (isAnnotateToolObject(o)) {
+    const v = (o as FabricObject & { data?: { variant?: string } }).data?.variant
+    return v === 'highlight' ? 'annotate-hl' : 'annotate-line'
+  }
+  return null
+}
+
+/**
+ * Floating bar for shapes, annotations, and whiteout when selected in select mode.
+ */
+export function ShapePropertiesToolbar({
+  canvas,
+  activeTool,
+}: ShapePropertiesToolbarProps) {
+  const toolbarRef = useRef<HTMLDivElement>(null)
+  const [target, setTarget] = useState<FabricObject | null>(null)
+  const [tick, setTick] = useState(0)
+
+  const bump = useCallback(() => {
+    setTick((t) => t + 1)
+  }, [])
+
+  useEffect(() => {
+    if (!canvas || activeTool !== 'select') return
+    const sync = () => {
+      const o = canvas.getActiveObject()
+      setTarget(o && isOverlayPropertiesObject(o) ? o : null)
+    }
+    const onCleared = () => setTarget(null)
+    sync()
+    canvas.on('selection:created', sync)
+    canvas.on('selection:updated', sync)
+    canvas.on('selection:cleared', onCleared)
+    canvas.on('object:modified', sync)
+    return () => {
+      canvas.off('selection:created', sync)
+      canvas.off('selection:updated', sync)
+      canvas.off('selection:cleared', onCleared)
+      canvas.off('object:modified', sync)
+    }
+  }, [canvas, activeTool])
+
+  useLayoutEffect(() => {
+    if (!canvas || !target || !toolbarRef.current) return
+    const el = toolbarRef.current
+    const bound = target.getBoundingRect()
+    const br = canvas.upperCanvasEl.getBoundingClientRect()
+    el.style.left = `${br.left + bound.left}px`
+    el.style.top = `${Math.max(8, br.top + bound.top - 44)}px`
+  }, [canvas, target, tick])
+
+  useEffect(() => {
+    if (!canvas || !target) return
+    const onAfter = () => bump()
+    canvas.on('after:render', onAfter)
+    return () => {
+      canvas.off('after:render', onAfter)
+    }
+  }, [canvas, target, bump])
+
+  const apply = useCallback(
+    (patch: Partial<{ stroke: string; fill: string; strokeWidth: number; opacity: number }>) => {
+      if (!canvas || !target) return
+      target.set(patch)
+      target.setCoords()
+      canvas.requestRenderAll()
+      bump()
+    },
+    [canvas, target, bump],
+  )
+
+  if (!target || !canvas || activeTool !== 'select') {
+    return null
+  }
+
+  const kind = getOverlayKind(target)
+  if (!kind) return null
+
+  const stroke = colorToHex(
+    typeof target.stroke === 'string' ? target.stroke : undefined,
+  )
+  const fillRaw = target.fill
+  const fillStr =
+    typeof fillRaw === 'string' ? fillRaw : fillRaw == null ? 'transparent' : ''
+  const fillHex =
+    fillStr === '' ||
+    fillStr === 'transparent' ||
+    fillStr.startsWith('rgba') ||
+    fillStr.startsWith('rgb')
+      ? colorToHex(fillStr.startsWith('rgba') || fillStr.startsWith('rgb') ? fillStr : '#ffffff')
+      : colorToHex(fillStr)
+  const fillForPicker =
+    fillStr === 'transparent' || fillStr === ''
+      ? '#ffffff'
+      : fillHex
+  const strokeWidth = Math.max(
+    0,
+    typeof target.strokeWidth === 'number' ? target.strokeWidth : 0,
+  )
+  const objectOpacity =
+    typeof target.opacity === 'number' ? target.opacity : 1
+  const highlightFillAlpha =
+    kind === 'annotate-hl' && typeof fillStr === 'string'
+      ? parseRgbaAlpha(fillStr)
+      : 1
+
+  const title =
+    kind === 'whiteout'
+      ? 'Whiteout'
+      : kind === 'shape'
+        ? 'Shape'
+        : kind === 'annotate-hl'
+          ? 'Highlight'
+          : 'Annotation'
+
+  return createPortal(
+    <div
+      ref={toolbarRef}
+      className="fixed z-99 flex max-w-[min(100vw-16px,480px)] flex-wrap items-center gap-2 rounded-lg border border-[#b3d7ff] bg-white px-3 py-2 text-sm shadow-lg"
+      role="toolbar"
+      aria-label={`${title} properties`}
+    >
+      <span className="text-xs font-medium text-slate-500">{title}</span>
+
+      {(kind === 'shape' || kind === 'whiteout' || kind === 'annotate-line') && (
+        <label className="flex items-center gap-1">
+          <span className="text-slate-500">Border</span>
+          <input
+            type="color"
+            className="h-8 w-10 cursor-pointer rounded border border-slate-300 bg-white p-0"
+            value={stroke}
+            onChange={(e) => {
+              apply({ stroke: e.target.value })
+            }}
+          />
+        </label>
+      )}
+
+      {(kind === 'shape' || kind === 'whiteout' || kind === 'annotate-hl') && (
+        <label className="flex items-center gap-1">
+          <span className="text-slate-500">Fill</span>
+          <input
+            type="color"
+            className="h-8 w-10 cursor-pointer rounded border border-slate-300 bg-white p-0"
+            value={fillForPicker}
+            onChange={(e) => {
+              if (kind === 'annotate-hl') {
+                const next = buildRgbaFromHex(e.target.value, highlightFillAlpha)
+                apply({ fill: next })
+              } else {
+                apply({ fill: e.target.value })
+              }
+            }}
+          />
+          {(kind === 'shape' || kind === 'annotate-hl') && (
+            <button
+              type="button"
+              className="rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-600 hover:bg-slate-50"
+              onClick={() => apply({ fill: 'transparent' })}
+            >
+              None
+            </button>
+          )}
+        </label>
+      )}
+
+      {kind === 'annotate-hl' && (
+        <label className="flex items-center gap-1">
+          <span className="text-slate-500">Fill α</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            className="w-24"
+            value={Math.round(highlightFillAlpha * 100)}
+            onChange={(e) => {
+              const a = Number(e.target.value) / 100
+              const next = buildRgbaFromHex(fillForPicker, a)
+              apply({ fill: next })
+            }}
+          />
+        </label>
+      )}
+
+      {(kind === 'shape' || kind === 'whiteout' || kind === 'annotate-line') && (
+        <label className="flex items-center gap-1">
+          <span className="text-slate-500">Width</span>
+          <input
+            type="number"
+            min={0}
+            max={48}
+            className="w-14 rounded border border-slate-300 px-1 py-1"
+            value={Math.round(strokeWidth)}
+            onChange={(e) => {
+              const n = Number(e.target.value)
+              if (!Number.isFinite(n)) return
+              apply({ strokeWidth: Math.max(0, n) })
+            }}
+          />
+        </label>
+      )}
+
+      {kind === 'whiteout' && (
+        <label className="flex items-center gap-1">
+          <span className="text-slate-500">Opacity</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            className="w-24"
+            value={Math.round(objectOpacity * 100)}
+            onChange={(e) => {
+              const n = Number(e.target.value) / 100
+              apply({ opacity: Math.min(1, Math.max(0, n)) })
+            }}
+          />
+        </label>
+      )}
+    </div>,
+    document.body,
+  )
+}

@@ -1,8 +1,11 @@
 import { Canvas, IText, version as fabricVersion } from 'fabric'
 import { useEffect, useRef, useState } from 'react'
 import type { RenderTask } from 'pdfjs-dist'
+import { applyCanvasToolMode, attachFabricCanvasTools } from '../lib/fabricCanvasTools'
 import { addPdfTextItemsToCanvas } from '../lib/pdfTextToFabric'
 import { usePdfEditorStore } from '../store/pdfEditorStore'
+import { CommentPanel } from './CommentPanel'
+import { ShapePropertiesToolbar } from './ShapePropertiesToolbar'
 import { TextEditToolbar } from './TextEditToolbar'
 
 if (import.meta.env.DEV) {
@@ -18,13 +21,9 @@ export function PDFViewer() {
   const currentPage = usePdfEditorStore((s) => s.currentPage)
   const zoomLevel = usePdfEditorStore((s) => s.zoomLevel)
   const activeTool = usePdfEditorStore((s) => s.activeTool)
+  const annotateVariant = usePdfEditorStore((s) => s.annotateVariant)
   const registerFabric = usePdfEditorStore((s) => s.registerFabric)
   const unregisterFabricPage = usePdfEditorStore((s) => s.unregisterFabricPage)
-
-  const activeToolRef = useRef(activeTool)
-  useEffect(() => {
-    activeToolRef.current = activeTool
-  }, [activeTool])
 
   const measureRef = useRef<HTMLDivElement>(null)
   const fabricHostRef = useRef<HTMLDivElement>(null)
@@ -57,6 +56,7 @@ export function PDFViewer() {
     const ac = new AbortController()
     const { signal } = ac
     let renderTask: RenderTask | null = null
+    let detachFabricTools: (() => void) | null = null
 
     void (async () => {
       const page = await pdf.getPage(currentPage)
@@ -99,10 +99,9 @@ export function PDFViewer() {
         enablePointerEvents: true,
         backgroundColor: 'transparent',
         enableRetinaScaling: false,
+        /** Required so hit-testing respects z-order; otherwise the active object (e.g. PDF IText) steals clicks from shapes above it. */
+        preserveObjectStacking: true,
       })
-
-      fabricCanvas.defaultCursor =
-        activeToolRef.current === 'text' ? 'crosshair' : 'default'
 
       if (signal.aborted) {
         await fabricCanvas.dispose()
@@ -116,39 +115,35 @@ export function PDFViewer() {
         return
       }
 
-      const syncSelection = () => {
-        const obj = fabricCanvas.getActiveObject()
-        setSelectedIText(obj instanceof IText ? obj : null)
+      const store = usePdfEditorStore.getState
+      detachFabricTools = attachFabricCanvasTools(
+        fabricCanvas,
+        {
+          getActiveTool: () => store().activeTool,
+          getShapeVariant: () => store().shapeVariant,
+          getAnnotateVariant: () => store().annotateVariant,
+          getCurrentPage: () => store().currentPage,
+        },
+        {
+          addCommentAt: (p, sx, sy) => store().addCommentAt(p, sx, sy),
+          onSelectionIText: (t) => {
+            setSelectedIText(t)
+          },
+        },
+      )
+
+      applyCanvasToolMode(
+        fabricCanvas,
+        store().activeTool,
+        store().annotateVariant,
+      )
+
+      if (signal.aborted) {
+        detachFabricTools()
+        detachFabricTools = null
+        await fabricCanvas.dispose()
+        return
       }
-
-      const onSelectionCreated = () => syncSelection()
-      const onSelectionUpdated = () => syncSelection()
-      const onSelectionCleared = () => setSelectedIText(null)
-
-      fabricCanvas.on('selection:created', onSelectionCreated)
-      fabricCanvas.on('selection:updated', onSelectionUpdated)
-      fabricCanvas.on('selection:cleared', onSelectionCleared)
-
-      const onMouseDown = (opt: { target?: unknown; scenePoint: { x: number; y: number } }) => {
-        if (activeToolRef.current !== 'text') return
-        if (opt.target) return
-        const { x, y } = opt.scenePoint
-        const t = new IText('Type here', {
-          left: x,
-          top: y,
-          fontSize: 16,
-          fill: '#111827',
-          fontFamily: 'sans-serif',
-          editable: true,
-          objectCaching: false,
-        })
-        fabricCanvas.add(t)
-        fabricCanvas.setActiveObject(t)
-        fabricCanvas.requestRenderAll()
-        setSelectedIText(t)
-      }
-
-      fabricCanvas.on('mouse:down', onMouseDown)
 
       fabricInstanceRef.current = fabricCanvas
       setOverlayCanvas(fabricCanvas)
@@ -160,6 +155,11 @@ export function PDFViewer() {
       renderTask?.cancel()
       setSelectedIText(null)
       setOverlayCanvas(null)
+
+      if (detachFabricTools) {
+        detachFabricTools()
+        detachFabricTools = null
+      }
 
       const inst = fabricInstanceRef.current
       fabricInstanceRef.current = null
@@ -183,14 +183,15 @@ export function PDFViewer() {
   ])
 
   useEffect(() => {
-    const c = fabricInstanceRef.current
-    if (!c) return
-    c.defaultCursor = activeTool === 'text' ? 'crosshair' : 'default'
-  }, [activeTool])
+    if (!overlayCanvas) return
+    applyCanvasToolMode(overlayCanvas, activeTool, annotateVariant)
+  }, [overlayCanvas, activeTool, annotateVariant])
 
   return (
     <div ref={measureRef} className="flex w-full min-w-0 justify-center px-4 pb-32 pt-6">
       <TextEditToolbar canvas={overlayCanvas} target={selectedIText} />
+      <ShapePropertiesToolbar canvas={overlayCanvas} activeTool={activeTool} />
+      <CommentPanel />
       <div className="relative inline-block max-w-full shadow-[0_4px_24px_rgba(0,0,0,0.12)]">
         <canvas
           ref={pdfCanvasRef}

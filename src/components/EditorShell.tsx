@@ -10,17 +10,20 @@ import {
   ListChecks,
   MousePointer2,
   Pen,
+  Pencil,
   RotateCcw,
   RotateCw,
   Shapes,
   Trash2,
+  Type,
   Undo2,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { usePdfEditorStore } from '../store/pdfEditorStore'
+import type { AnnotateVariant, ShapeVariant } from '../types/editorTools'
 
 const NAV_LINKS = [
   'All Tools',
@@ -32,17 +35,19 @@ const NAV_LINKS = [
   'Crop',
 ] as const
 
-const TOOL_GROUPS = [
-  { label: 'Text', Icon: MousePointer2 },
-  { label: 'Links', Icon: Link2 },
-  { label: 'Forms', Icon: ListChecks },
-  { label: 'Images', Icon: Image },
-  { label: 'Sign', Icon: Pen },
-  { label: 'Whiteout', Icon: Eraser },
-  { label: 'Annotate', Icon: Highlighter },
-  { label: 'Shapes', Icon: Shapes },
-  { label: 'Undo', Icon: Undo2 },
-] as const
+const SHAPE_OPTIONS: { id: ShapeVariant; label: string }[] = [
+  { id: 'rectangle', label: 'Rectangle' },
+  { id: 'circle', label: 'Circle' },
+  { id: 'line', label: 'Line' },
+  { id: 'arrow', label: 'Arrow' },
+]
+
+const ANNOTATE_OPTIONS: { id: AnnotateVariant; label: string }[] = [
+  { id: 'highlight', label: 'Highlight' },
+  { id: 'underline', label: 'Underline' },
+  { id: 'strike', label: 'Strikethrough' },
+  { id: 'comment', label: 'Comment' },
+]
 
 type EditorShellProps = {
   children: ReactNode
@@ -66,6 +71,14 @@ export function EditorShell({
   const zoomOut = usePdfEditorStore((s) => s.zoomOut)
   const activeTool = usePdfEditorStore((s) => s.activeTool)
   const setActiveTool = usePdfEditorStore((s) => s.setActiveTool)
+  const shapeVariant = usePdfEditorStore((s) => s.shapeVariant)
+  const setShapeVariant = usePdfEditorStore((s) => s.setShapeVariant)
+  const annotateVariant = usePdfEditorStore((s) => s.annotateVariant)
+  const setAnnotateVariant = usePdfEditorStore((s) => s.setAnnotateVariant)
+  const setCommentPanelOpen = usePdfEditorStore((s) => s.setCommentPanelOpen)
+
+  const [shapesOpen, setShapesOpen] = useState(false)
+  const [annotateOpen, setAnnotateOpen] = useState(false)
 
   return (
     <div className="relative flex min-h-dvh flex-col bg-[#f3f3f3] text-[#333]">
@@ -137,41 +150,165 @@ export function EditorShell({
       </div>
 
       <div className="sticky z-40 border-b border-[#e8e8e8] bg-[#fafafa] px-4 py-3">
-        <div className="mx-auto flex max-w-[920px] flex-wrap justify-center">
-          <div className="inline-flex overflow-hidden rounded-md border border-[#b3d7ff] bg-white shadow-sm">
-            {TOOL_GROUPS.map(({ label, Icon }, i) => {
-              const isText = label === 'Text'
-              const textActive = isText && activeTool === 'text'
-              return (
-                <button
-                  key={label}
-                  type="button"
-                  disabled={!isText}
-                  aria-disabled={!isText}
-                  aria-pressed={isText ? textActive : undefined}
-                  onClick={() => {
-                    if (!isText) return
-                    setActiveTool(activeTool === 'text' ? 'select' : 'text')
-                  }}
-                  className={`flex min-h-[40px] items-center gap-1.5 px-3 py-2 text-sm ${
-                    isText ? 'text-[#333]' : 'cursor-not-allowed text-[#aaa]'
-                  } ${textActive ? 'bg-[#f0f8ff]' : ''} ${
-                    i > 0 ? 'border-l border-[#b3d7ff]' : ''
-                  }`}
+        <div className="mx-auto flex max-w-[980px] flex-wrap justify-center gap-1">
+          <div className="inline-flex flex-wrap overflow-visible rounded-md border border-[#b3d7ff] bg-white shadow-sm">
+            <button
+              type="button"
+              aria-pressed={activeTool === 'select'}
+              onClick={() => setActiveTool('select')}
+              className={`flex min-h-[40px] items-center gap-1.5 border-r border-[#b3d7ff] px-3 py-2 text-sm text-[#333] ${
+                activeTool === 'select' ? 'bg-[#f0f8ff]' : ''
+              }`}
+            >
+              <MousePointer2 className="h-4 w-4 shrink-0 text-[#40a9ff]" strokeWidth={1.75} />
+              Select
+            </button>
+            <button
+              type="button"
+              aria-pressed={activeTool === 'text'}
+              onClick={() => setActiveTool('text')}
+              className={`flex min-h-[40px] items-center gap-1.5 border-r border-[#b3d7ff] px-3 py-2 text-sm text-[#333] ${
+                activeTool === 'text' ? 'bg-[#f0f8ff]' : ''
+              }`}
+            >
+              <Type className="h-4 w-4 shrink-0 text-[#40a9ff]" strokeWidth={1.75} />
+              Text
+            </button>
+            <button
+              type="button"
+              aria-pressed={activeTool === 'whiteout'}
+              onClick={() => setActiveTool('whiteout')}
+              className={`flex min-h-[40px] items-center gap-1.5 border-r border-[#b3d7ff] px-3 py-2 text-sm text-[#333] ${
+                activeTool === 'whiteout' ? 'bg-[#f0f8ff]' : ''
+              }`}
+            >
+              <Eraser className="h-4 w-4 shrink-0 text-[#40a9ff]" strokeWidth={1.75} />
+              Whiteout
+            </button>
+            <div className="relative border-r border-[#b3d7ff]">
+              <button
+                type="button"
+                aria-expanded={shapesOpen}
+                aria-pressed={activeTool === 'shapes'}
+                onClick={() => {
+                  setShapesOpen((o) => !o)
+                  setAnnotateOpen(false)
+                }}
+                className={`flex min-h-[40px] items-center gap-1 px-3 py-2 text-sm text-[#333] ${
+                  activeTool === 'shapes' ? 'bg-[#f0f8ff]' : ''
+                }`}
+              >
+                <Shapes className="h-4 w-4 shrink-0 text-[#40a9ff]" strokeWidth={1.75} />
+                Shapes
+                <span className="text-[10px] text-[#888]" aria-hidden>
+                  ▾
+                </span>
+              </button>
+              {shapesOpen ? (
+                <div
+                  className="absolute left-0 top-full z-[100] mt-1 min-w-[160px] rounded border border-[#b3d7ff] bg-white py-1 shadow-lg"
+                  role="menu"
                 >
-                  <Icon
-                    className={`h-4 w-4 shrink-0 ${isText ? 'text-[#40a9ff]' : 'text-[#ccc]'}`}
-                    strokeWidth={1.75}
-                  />
-                  <span>{label}</span>
-                  {label !== 'Undo' && label !== 'Whiteout' ? (
-                    <span className="text-[10px] text-[#888]" aria-hidden>
-                      ▾
-                    </span>
-                  ) : null}
-                </button>
-              )
-            })}
+                  {SHAPE_OPTIONS.map(({ id, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="menuitem"
+                      className={`block w-full px-3 py-2 text-left text-sm hover:bg-[#f0f8ff] ${
+                        shapeVariant === id && activeTool === 'shapes' ? 'bg-[#e6f4ff]' : ''
+                      }`}
+                      onClick={() => {
+                        setShapeVariant(id)
+                        setActiveTool('shapes')
+                        setShapesOpen(false)
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <div className="relative border-r border-[#b3d7ff]">
+              <button
+                type="button"
+                aria-expanded={annotateOpen}
+                aria-pressed={activeTool === 'annotate'}
+                onClick={() => {
+                  setAnnotateOpen((o) => !o)
+                  setShapesOpen(false)
+                }}
+                className={`flex min-h-[40px] items-center gap-1 px-3 py-2 text-sm text-[#333] ${
+                  activeTool === 'annotate' ? 'bg-[#f0f8ff]' : ''
+                }`}
+              >
+                <Highlighter className="h-4 w-4 shrink-0 text-[#40a9ff]" strokeWidth={1.75} />
+                Annotate
+                <span className="text-[10px] text-[#888]" aria-hidden>
+                  ▾
+                </span>
+              </button>
+              {annotateOpen ? (
+                <div
+                  className="absolute left-0 top-full z-[100] mt-1 min-w-[180px] rounded border border-[#b3d7ff] bg-white py-1 shadow-lg"
+                  role="menu"
+                >
+                  {ANNOTATE_OPTIONS.map(({ id, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="menuitem"
+                      className={`block w-full px-3 py-2 text-left text-sm hover:bg-[#f0f8ff] ${
+                        annotateVariant === id && activeTool === 'annotate' ? 'bg-[#e6f4ff]' : ''
+                      }`}
+                      onClick={() => {
+                        setAnnotateVariant(id)
+                        setActiveTool('annotate')
+                        setAnnotateOpen(false)
+                        if (id === 'comment') {
+                          setCommentPanelOpen(true)
+                        }
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              aria-pressed={activeTool === 'draw'}
+              onClick={() => setActiveTool('draw')}
+              className={`flex min-h-[40px] items-center gap-1.5 px-3 py-2 text-sm text-[#333] ${
+                activeTool === 'draw' ? 'bg-[#f0f8ff]' : ''
+              }`}
+            >
+              <Pencil className="h-4 w-4 shrink-0 text-[#40a9ff]" strokeWidth={1.75} />
+              Draw
+            </button>
+          </div>
+          <div className="inline-flex overflow-hidden rounded-md border border-[#e0e0e0] bg-[#fafafa] text-[#aaa]">
+            {(
+              [
+                ['Links', Link2],
+                ['Forms', ListChecks],
+                ['Images', Image],
+                ['Sign', Pen],
+                ['Undo', Undo2],
+              ] as const
+            ).map(([label, Icon]) => (
+              <button
+                key={label}
+                type="button"
+                disabled
+                aria-disabled
+                className="flex min-h-[40px] cursor-not-allowed items-center gap-1.5 border-l border-[#e8e8e8] px-2 py-2 text-sm first:border-l-0"
+              >
+                <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                <span className="hidden sm:inline">{label}</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>

@@ -1,22 +1,32 @@
 import { Canvas } from 'fabric'
 import { getDocument, type PDFDocumentProxy } from 'pdfjs-dist'
 import { create } from 'zustand'
+import type {
+  AnnotateVariant,
+  CommentEntry,
+  EditorTool,
+  ShapeVariant,
+} from '../types/editorTools'
 
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 3
 const ZOOM_STEP = 0.1
 
-export type EditorTool = 'select' | 'text'
+export type { AnnotateVariant, CommentEntry, EditorTool, ShapeVariant }
 
 export type PdfEditorState = {
   pdf: PDFDocumentProxy | null
   pdfFileName: string
   currentPage: number
   totalPages: number
-  /** Multiplier applied after fit-to-width (1 = 100% of fit). */
   zoomLevel: number
-  /** Primary toolbar tool (e.g. Text adds IText on empty canvas click). */
   activeTool: EditorTool
+  shapeVariant: ShapeVariant
+  annotateVariant: AnnotateVariant
+  comments: CommentEntry[]
+  /** Comment id open in sidebar (new or existing). */
+  activeCommentId: string | null
+  commentPanelOpen: boolean
   fabricByPage: Map<number, Canvas>
 }
 
@@ -29,9 +39,15 @@ export type PdfEditorActions = {
   zoomIn: () => void
   zoomOut: () => void
   setActiveTool: (tool: EditorTool) => void
+  setShapeVariant: (v: ShapeVariant) => void
+  setAnnotateVariant: (v: AnnotateVariant) => void
+  addCommentAt: (page: number, sceneX: number, sceneY: number) => string
+  updateCommentBody: (id: string, body: string) => void
+  removeComment: (id: string) => void
+  setActiveCommentId: (id: string | null) => void
+  setCommentPanelOpen: (open: boolean) => void
   registerFabric: (page: number, canvas: Canvas) => Promise<void>
   disposeFabric: (page: number) => Promise<void>
-  /** Remove map entry without disposing — use when the instance was already disposed. */
   unregisterFabricPage: (page: number) => void
   disposeAllFabric: () => Promise<void>
   reset: () => Promise<void>
@@ -39,6 +55,10 @@ export type PdfEditorActions = {
 
 function clampZoom(z: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
+}
+
+function newCommentId(): string {
+  return `c-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
 async function disposeAllFabricFromMap(
@@ -57,6 +77,11 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
     totalPages: 0,
     zoomLevel: 1,
     activeTool: 'select',
+    shapeVariant: 'rectangle',
+    annotateVariant: 'highlight',
+    comments: [],
+    activeCommentId: null,
+    commentPanelOpen: false,
     fabricByPage: new Map(),
 
     loadPdfFromBytes: async (data, fileName) => {
@@ -78,6 +103,9 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         fabricByPage: new Map(),
         zoomLevel: 1,
         activeTool: 'select',
+        comments: [],
+        activeCommentId: null,
+        commentPanelOpen: false,
       })
     },
 
@@ -110,6 +138,45 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
       set((s) => ({ zoomLevel: clampZoom(s.zoomLevel - ZOOM_STEP) })),
 
     setActiveTool: (tool) => set({ activeTool: tool }),
+
+    setShapeVariant: (v) => set({ shapeVariant: v }),
+
+    setAnnotateVariant: (v) => set({ annotateVariant: v }),
+
+    addCommentAt: (page, sceneX, sceneY) => {
+      const id = newCommentId()
+      const entry: CommentEntry = {
+        id,
+        page,
+        sceneX,
+        sceneY,
+        body: '',
+      }
+      set((s) => ({
+        comments: [...s.comments, entry],
+        activeCommentId: id,
+        commentPanelOpen: true,
+      }))
+      return id
+    },
+
+    updateCommentBody: (id, body) => {
+      set((s) => ({
+        comments: s.comments.map((c) => (c.id === id ? { ...c, body } : c)),
+      }))
+    },
+
+    removeComment: (id) => {
+      set((s) => ({
+        comments: s.comments.filter((c) => c.id !== id),
+        activeCommentId:
+          s.activeCommentId === id ? null : s.activeCommentId,
+      }))
+    },
+
+    setActiveCommentId: (id) => set({ activeCommentId: id }),
+
+    setCommentPanelOpen: (open) => set({ commentPanelOpen: open }),
 
     registerFabric: async (page, canvas) => {
       const prev = get().fabricByPage.get(page)
@@ -162,6 +229,11 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         totalPages: 0,
         zoomLevel: 1,
         activeTool: 'select',
+        shapeVariant: 'rectangle',
+        annotateVariant: 'highlight',
+        comments: [],
+        activeCommentId: null,
+        commentPanelOpen: false,
         fabricByPage: new Map(),
       })
     },
