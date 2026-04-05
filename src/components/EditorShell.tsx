@@ -92,6 +92,7 @@ export function EditorShell({
   const enqueueImageInsert = usePdfEditorStore((s) => s.enqueueImageInsert)
   const pdfSourceBytes = usePdfEditorStore((s) => s.pdfSourceBytes)
   const formFields = usePdfEditorStore((s) => s.formFields)
+  const pdfLinks = usePdfEditorStore((s) => s.pdfLinks)
   const formFieldVariant = usePdfEditorStore((s) => s.formFieldVariant)
   const setFormFieldVariant = usePdfEditorStore((s) => s.setFormFieldVariant)
 
@@ -326,11 +327,18 @@ export function EditorShell({
           <div className="inline-flex overflow-visible rounded-md border border-[#e0e0e0] bg-[#fafafa]">
             <button
               type="button"
-              disabled
-              aria-disabled
-              className="flex min-h-[40px] cursor-not-allowed items-center gap-1.5 border-r border-[#e8e8e8] px-2 py-2 text-sm text-[#aaa]"
+              aria-pressed={activeTool === 'links'}
+              onClick={() => {
+                setShapesOpen(false)
+                setAnnotateOpen(false)
+                setFormsOpen(false)
+                setActiveTool('links')
+              }}
+              className={`flex min-h-[40px] items-center gap-1.5 border-r border-[#e8e8e8] bg-white px-2 py-2 text-sm text-[#333] hover:bg-[#f0f8ff] ${
+                activeTool === 'links' ? 'bg-[#f0f8ff]' : ''
+              }`}
             >
-              <Link2 className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+              <Link2 className="h-4 w-4 shrink-0 text-[#40a9ff]" strokeWidth={1.75} />
               <span className="hidden sm:inline">Links</span>
             </button>
             <div className="relative border-r border-[#e8e8e8]">
@@ -528,6 +536,7 @@ export function EditorShell({
                 const out = await exportPdfWithFormFields(
                   pdfSourceBytes,
                   formFields,
+                  pdfLinks,
                 )
                 const base = (pdfFileName || 'document').replace(
                   /\.pdf$/i,

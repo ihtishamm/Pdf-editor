@@ -2,6 +2,7 @@ import { Canvas } from 'fabric'
 import { getDocument, type PDFDocumentProxy } from 'pdfjs-dist'
 import { create } from 'zustand'
 import type { FormFieldMeta } from '../types/formFields'
+import type { PdfLinkEntry } from '../types/pdfLinks'
 import type {
   AnnotateVariant,
   CommentEntry,
@@ -30,6 +31,8 @@ export type PdfEditorState = {
   formFieldVariant: FormFieldVariant
   formFields: FormFieldMeta[]
   selectedFormFieldId: string | null
+  /** Hyperlink regions (normalized geometry); Fabric rects reference `data.linkId`. */
+  pdfLinks: PdfLinkEntry[]
   comments: CommentEntry[]
   /** Comment id open in sidebar (new or existing). */
   activeCommentId: string | null
@@ -55,6 +58,12 @@ export type PdfEditorActions = {
   updateFormField: (id: string, patch: Partial<FormFieldMeta>) => void
   removeFormField: (id: string) => void
   setSelectedFormFieldId: (id: string | null) => void
+  addPdfLink: (entry: Omit<PdfLinkEntry, 'id' | 'linkType' | 'value'> & {
+    linkType?: PdfLinkEntry['linkType']
+    value?: string
+  }) => PdfLinkEntry
+  updatePdfLink: (id: string, patch: Partial<Pick<PdfLinkEntry, 'linkType' | 'value' | 'position' | 'size'>>) => void
+  removePdfLink: (id: string) => void
   addCommentAt: (page: number, sceneX: number, sceneY: number) => string
   updateCommentBody: (id: string, body: string) => void
   removeComment: (id: string) => void
@@ -79,6 +88,10 @@ function newCommentId(): string {
 
 function newFormFieldId(): string {
   return `ff-${crypto.randomUUID()}`
+}
+
+function newPdfLinkId(): string {
+  return `lnk-${crypto.randomUUID()}`
 }
 
 function slugPdfName(prefix: string): string {
@@ -108,6 +121,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
     formFieldVariant: 'text',
     formFields: [],
     selectedFormFieldId: null,
+    pdfLinks: [],
     comments: [],
     activeCommentId: null,
     commentPanelOpen: false,
@@ -136,6 +150,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         activeTool: 'select',
         formFields: [],
         selectedFormFieldId: null,
+        pdfLinks: [],
         comments: [],
         activeCommentId: null,
         commentPanelOpen: false,
@@ -240,6 +255,39 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
 
     setSelectedFormFieldId: (id) => set({ selectedFormFieldId: id }),
 
+    addPdfLink: (partial) => {
+      const id = newPdfLinkId()
+      const entry: PdfLinkEntry = {
+        id,
+        page: partial.page,
+        position: { ...partial.position },
+        size: { ...partial.size },
+        linkType: partial.linkType ?? 'url',
+        value: partial.value ?? '',
+      }
+      set((s) => ({ pdfLinks: [...s.pdfLinks, entry] }))
+      return entry
+    },
+
+    updatePdfLink: (id, patch) => {
+      set((s) => ({
+        pdfLinks: s.pdfLinks.map((l) => {
+          if (l.id !== id) return l
+          const next = { ...l, ...patch }
+          if (patch.position)
+            next.position = { ...l.position, ...patch.position }
+          if (patch.size) next.size = { ...l.size, ...patch.size }
+          return next
+        }),
+      }))
+    },
+
+    removePdfLink: (id) => {
+      set((s) => ({
+        pdfLinks: s.pdfLinks.filter((l) => l.id !== id),
+      }))
+    },
+
     addCommentAt: (page, sceneX, sceneY) => {
       const id = newCommentId()
       const entry: CommentEntry = {
@@ -336,6 +384,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         formFieldVariant: 'text',
         formFields: [],
         selectedFormFieldId: null,
+        pdfLinks: [],
         comments: [],
         activeCommentId: null,
         commentPanelOpen: false,

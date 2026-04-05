@@ -19,10 +19,15 @@ import {
   isFormFieldObject,
   refreshFabricFormField,
 } from '../lib/fabricFormField'
+import {
+  addPdfLinksToCanvas,
+  applyPdfLinksLockState,
+} from '../lib/fabricPdfLink'
 import { addPdfTextItemsToCanvas } from '../lib/pdfTextToFabric'
 import type { FormFieldType } from '../types/formFields'
 import { usePdfEditorStore } from '../store/pdfEditorStore'
 import { CommentPanel } from './CommentPanel'
+import { LinkPropertiesPopover } from './LinkPropertiesPopover'
 import { FormFieldFloatingToolbar } from './FormFieldFloatingToolbar'
 import { FormFieldPropertiesPanel } from './FormFieldPropertiesPanel'
 import { ImagePropertiesPanel } from './ImagePropertiesPanel'
@@ -49,6 +54,7 @@ export function PDFViewer() {
   const clearPendingImageInsert = usePdfEditorStore((s) => s.clearPendingImageInsert)
   const enqueueImageInsert = usePdfEditorStore((s) => s.enqueueImageInsert)
   const setActiveTool = usePdfEditorStore((s) => s.setActiveTool)
+  const pdfLinks = usePdfEditorStore((s) => s.pdfLinks)
   const formFields = usePdfEditorStore((s) => s.formFields)
   const selectedFormFieldId = usePdfEditorStore((s) => s.selectedFormFieldId)
   const selectedFormField = usePdfEditorStore((s) =>
@@ -64,6 +70,10 @@ export function PDFViewer() {
 
   const [overlayCanvas, setOverlayCanvas] = useState<Canvas | null>(null)
   const [selectedIText, setSelectedIText] = useState<IText | null>(null)
+  const [linkPanel, setLinkPanel] = useState<{
+    linkId: string
+    anchor: { x: number; y: number }
+  } | null>(null)
 
   useEffect(() => {
     const el = measureRef.current
@@ -156,6 +166,15 @@ export function PDFViewer() {
         h,
       )
 
+      addPdfLinksToCanvas(
+        fabricCanvas,
+        usePdfEditorStore.getState().pdfLinks,
+        currentPage,
+        w,
+        h,
+        usePdfEditorStore.getState().activeTool === 'links',
+      )
+
       if (signal.aborted) {
         await fabricCanvas.dispose()
         return
@@ -227,6 +246,54 @@ export function PDFViewer() {
           onFormFieldGeometryCommit: (fieldId, position, size) => {
             store().updateFormField(fieldId, { position, size })
           },
+          onLinkBoxDrawn: (args) => {
+            const s = store()
+            const position = {
+              x: args.left / args.canvasW,
+              y: args.top / args.canvasH,
+            }
+            const size = {
+              w: args.width / args.canvasW,
+              h: args.height / args.canvasH,
+            }
+            const entry = s.addPdfLink({
+              page: args.page,
+              position,
+              size,
+            })
+            const el = fabricCanvas.upperCanvasEl
+            const br = el.getBoundingClientRect()
+            const sx = br.width / args.canvasW
+            const sy = br.height / args.canvasH
+            setLinkPanel({
+              linkId: entry.id,
+              anchor: {
+                x: br.left + (args.left + args.width / 2) * sx,
+                y: br.top + (args.top + args.height / 2) * sy,
+              },
+            })
+          },
+          onLinkClicked: (linkId) => {
+            const s = store()
+            const link = s.pdfLinks.find((l) => l.id === linkId)
+            if (!link || link.page !== currentPage) return
+            const cw = fabricCanvas.getWidth()
+            const ch = fabricCanvas.getHeight()
+            const el = fabricCanvas.upperCanvasEl
+            const b = el.getBoundingClientRect()
+            const cx = (link.position.x + link.size.w / 2) * cw
+            const cy = (link.position.y + link.size.h / 2) * ch
+            setLinkPanel({
+              linkId,
+              anchor: {
+                x: b.left + (cx / cw) * b.width,
+                y: b.top + (cy / ch) * b.height,
+              },
+            })
+          },
+          onPdfLinkGeometryCommit: (linkId, position, size) => {
+            store().updatePdfLink(linkId, { position, size })
+          },
         },
       )
 
@@ -284,7 +351,36 @@ export function PDFViewer() {
   useEffect(() => {
     if (!overlayCanvas) return
     applyCanvasToolMode(overlayCanvas, activeTool, annotateVariant)
+    applyPdfLinksLockState(overlayCanvas, activeTool === 'links')
   }, [overlayCanvas, activeTool, annotateVariant])
+
+  useEffect(() => {
+    if (!overlayCanvas) return
+    const cw = overlayCanvas.getWidth()
+    const ch = overlayCanvas.getHeight()
+    addPdfLinksToCanvas(
+      overlayCanvas,
+      pdfLinks,
+      currentPage,
+      cw,
+      ch,
+      activeTool === 'links',
+    )
+  }, [pdfLinks, overlayCanvas, currentPage, activeTool])
+
+  useEffect(() => {
+    if (!linkPanel) return
+    const still = pdfLinks.some(
+      (l) => l.id === linkPanel.linkId && l.page === currentPage,
+    )
+    if (!still) {
+      queueMicrotask(() => setLinkPanel(null))
+    }
+  }, [pdfLinks, currentPage, linkPanel])
+
+  useEffect(() => {
+    if (!pdf) queueMicrotask(() => setLinkPanel(null))
+  }, [pdf])
 
   const fieldRefreshKey = selectedFormField
     ? [
@@ -395,6 +491,11 @@ export function PDFViewer() {
         className="flex min-w-0 flex-1 justify-center px-4 pb-32 pt-6"
       >
         <TextEditToolbar canvas={overlayCanvas} target={selectedIText} />
+        <LinkPropertiesPopover
+          linkId={linkPanel?.linkId ?? null}
+          anchor={linkPanel?.anchor ?? null}
+          onClose={() => setLinkPanel(null)}
+        />
         <FormFieldFloatingToolbar canvas={overlayCanvas} activeTool={activeTool} />
         <ShapePropertiesToolbar canvas={overlayCanvas} activeTool={activeTool} />
         <ImagePropertiesPanel canvas={overlayCanvas} activeTool={activeTool} />

@@ -6,6 +6,7 @@ export type EditorTool =
   | 'shapes'
   | 'annotate'
   | 'draw'
+  | 'links'
   | 'forms'
 
 /** Active subtype when `activeTool === 'forms'` (Forms toolbar). */

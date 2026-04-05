@@ -19,6 +19,11 @@ import {
   isFormFieldObject,
   isFormGhostObject,
 } from './fabricFormField'
+import {
+  fabricLinkToNormalized,
+  getPdfLinkId,
+  isPdfLinkObject,
+} from './fabricPdfLink'
 import { defaultFormFieldPixelSize } from './formFieldPlacement'
 import type {
   AnnotateVariant,
@@ -55,7 +60,14 @@ type LineDrag = {
   temp: Line
 }
 
-type DragState = BoxDrag | LineDrag
+type LinkBoxDrag = {
+  kind: 'linkBox'
+  sx: number
+  sy: number
+  temp: Rect
+}
+
+type DragState = BoxDrag | LineDrag | LinkBoxDrag
 
 function updateBoxFromDrag(
   temp: Rect,
@@ -191,6 +203,21 @@ export function attachFabricCanvasTools(
       position: { x: number; y: number },
       size: { w: number; h: number },
     ) => void
+    onLinkBoxDrawn: (args: {
+      page: number
+      left: number
+      top: number
+      width: number
+      height: number
+      canvasW: number
+      canvasH: number
+    }) => void
+    onLinkClicked: (linkId: string) => void
+    onPdfLinkGeometryCommit: (
+      linkId: string,
+      position: { x: number; y: number },
+      size: { w: number; h: number },
+    ) => void
   },
 ): () => void {
   let drag: DragState | null = null
@@ -217,6 +244,31 @@ export function attachFabricCanvasTools(
     const { x, y } = opt.scenePoint
 
     if (tool === 'draw') return
+
+    if (tool === 'links') {
+      const linkId = opt.target ? getPdfLinkId(opt.target) : null
+      if (linkId) {
+        callbacks.onLinkClicked(linkId)
+        return
+      }
+      if (opt.target) return
+      const temp = new Rect({
+        left: x,
+        top: y,
+        width: 2,
+        height: 2,
+        fill: 'rgba(64, 169, 255, 0.2)',
+        stroke: '#2563eb',
+        strokeWidth: 1.5,
+        strokeDashArray: [6, 4],
+        objectCaching: false,
+        selectable: false,
+        evented: false,
+      })
+      canvas.add(temp)
+      drag = { kind: 'linkBox', sx: x, sy: y, temp }
+      return
+    }
 
     if (tool === 'text') {
       if (opt.target) return
@@ -421,6 +473,11 @@ export function attachFabricCanvasTools(
     }
     if (!drag) return
     const { x, y } = opt.scenePoint
+    if (drag.kind === 'linkBox') {
+      updateBoxFromDrag(drag.temp, drag.sx, drag.sy, x, y)
+      canvas.requestRenderAll()
+      return
+    }
     if (drag.kind === 'box') {
       updateBoxFromDrag(drag.temp, drag.sx, drag.sy, x, y)
       canvas.requestRenderAll()
@@ -437,6 +494,32 @@ export function attachFabricCanvasTools(
     if (!drag) return
     const d = drag
     drag = null
+
+    if (d.kind === 'linkBox') {
+      const temp = d.temp
+      const left = temp.left ?? 0
+      const top = temp.top ?? 0
+      const w = temp.width ?? 0
+      const h = temp.height ?? 0
+      canvas.remove(temp)
+      const cw = canvas.getWidth()
+      const ch = canvas.getHeight()
+      if (w < 4 || h < 4) {
+        canvas.requestRenderAll()
+        return
+      }
+      callbacks.onLinkBoxDrawn({
+        page: getters.getCurrentPage(),
+        left,
+        top,
+        width: w,
+        height: h,
+        canvasW: cw,
+        canvasH: ch,
+      })
+      canvas.requestRenderAll()
+      return
+    }
 
     if (d.kind === 'line') {
       const { sx, sy, ex, ey, shapeVariant, temp } = d
@@ -545,13 +628,24 @@ export function attachFabricCanvasTools(
 
   const onObjectModified = (opt: { target?: FabricObject }) => {
     const t = opt.target
-    if (!t || !isFormFieldObject(t)) return
-    const id = getFormFieldId(t)
-    if (!id) return
-    const cw = canvas.getWidth()
-    const ch = canvas.getHeight()
-    const { position, size } = formFieldObjectToNormalized(t, cw, ch)
-    callbacks.onFormFieldGeometryCommit(id, position, size)
+    if (!t) return
+    if (isFormFieldObject(t)) {
+      const id = getFormFieldId(t)
+      if (!id) return
+      const cw = canvas.getWidth()
+      const ch = canvas.getHeight()
+      const { position, size } = formFieldObjectToNormalized(t, cw, ch)
+      callbacks.onFormFieldGeometryCommit(id, position, size)
+      return
+    }
+    if (isPdfLinkObject(t)) {
+      const id = getPdfLinkId(t)
+      if (!id) return
+      const cw = canvas.getWidth()
+      const ch = canvas.getHeight()
+      const { position, size } = fabricLinkToNormalized(t, cw, ch)
+      callbacks.onPdfLinkGeometryCommit(id, position, size)
+    }
   }
 
   canvas.on('selection:created', onSelectionCreated)
@@ -600,7 +694,7 @@ export function applyCanvasToolMode(
   if (tool !== 'forms') {
     removeFormPlacementGhost(canvas)
   }
-  if (tool === 'text' || tool === 'draw' || tool === 'forms') {
+  if (tool === 'text' || tool === 'draw' || tool === 'forms' || tool === 'links') {
     canvas.defaultCursor = 'crosshair'
   } else if (isCommentMode) {
     canvas.defaultCursor = 'copy'

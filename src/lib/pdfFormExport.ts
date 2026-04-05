@@ -1,5 +1,7 @@
 import { PDFDocument, StandardFonts } from 'pdf-lib'
+import { applyPdfLinksToPdfDocument } from './pdfLinkExport'
 import type { FormFieldMeta } from '../types/formFields'
+import type { PdfLinkEntry } from '../types/pdfLinks'
 
 function fieldRectPdf(
   f: FormFieldMeta,
@@ -31,6 +33,7 @@ function ensureUniqueName(base: string, used: Set<string>): string {
 export async function exportPdfWithFormFields(
   sourceBytes: Uint8Array,
   fields: FormFieldMeta[],
+  pdfLinks: PdfLinkEntry[] = [],
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(sourceBytes, { ignoreEncryption: true })
   const form = pdfDoc.getForm()
@@ -103,5 +106,8 @@ export async function exportPdfWithFormFields(
   }
 
   form.updateFieldAppearances(font)
+  if (pdfLinks.length) {
+    applyPdfLinksToPdfDocument(pdfDoc, pdfLinks)
+  }
   return pdfDoc.save()
 }
