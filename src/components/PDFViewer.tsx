@@ -29,6 +29,10 @@ import {
   applyPdfLinksLockState,
   createFabricPdfLink,
 } from '../lib/fabricPdfLink'
+import {
+  applyPageOverlayToCanvas,
+  capturePageOverlay,
+} from '../lib/pageOverlaySnapshot'
 import { addPdfTextItemsToCanvas } from '../lib/pdfTextToFabric'
 import type { FormFieldType } from '../types/formFields'
 
@@ -190,6 +194,16 @@ export function PDFViewer() {
           usePdfEditorStore.getState().activeTool === 'links',
         )
       })
+
+      if (signal.aborted) {
+        await fabricCanvas.dispose()
+        return
+      }
+
+      await applyPageOverlayToCanvas(
+        fabricCanvas,
+        usePdfEditorStore.getState().pageOverlaySnapshots.get(currentPage),
+      )
 
       if (signal.aborted) {
         await fabricCanvas.dispose()
@@ -370,6 +384,14 @@ export function PDFViewer() {
       if (detachFabricTools) {
         detachFabricTools()
         detachFabricTools = null
+      }
+
+      if (inst) {
+        const snap = capturePageOverlay(inst)
+        usePdfEditorStore.getState().savePageOverlaySnapshot(
+          currentPage,
+          snap.objects.length > 0 ? snap : null,
+        )
       }
 
       fabricInstanceRef.current = null

@@ -14,6 +14,7 @@ import type {
   FormFieldVariant,
   ShapeVariant,
 } from '../types/editorTools'
+import type { PageOverlaySnapshot } from '../lib/pageOverlaySnapshot'
 
 const MIN_ZOOM = 0.5
 const MAX_HISTORY_ENTRIES = 50
@@ -21,6 +22,8 @@ const MAX_ZOOM = 3
 const ZOOM_STEP = 0.1
 
 export type { AnnotateVariant, CommentEntry, EditorTool, FormFieldVariant, ShapeVariant }
+
+export type EditorMainView = 'editor' | 'ready'
 
 export type PdfEditorState = {
   pdf: PDFDocumentProxy | null
@@ -43,6 +46,11 @@ export type PdfEditorState = {
   activeCommentId: string | null
   commentPanelOpen: boolean
   fabricByPage: Map<number, Canvas>
+  /**
+   * User-drawn Fabric overlay per page (shapes, stamps, etc.) captured when leaving the page.
+   * Live canvas in `fabricByPage` wins at export; this backs non-visible pages.
+   */
+  pageOverlaySnapshots: Map<number, PageOverlaySnapshot>
   /** Picked up by PDFViewer to insert on the current page’s Fabric canvas. */
   pendingImageInsert: File | null
   /** Insert Fabric image from Sign modal (centered, or at last cursor position on overlay). */
@@ -50,6 +58,13 @@ export type PdfEditorState = {
   savedSignatures: SavedSignature[]
   /** Newest first; global across PDF pages. */
   history: HistoryEntry[]
+  /** Object URL for last successful export (revoke when replacing or clearing). */
+  exportedBlobUrl: string | null
+  exportedBytes: Uint8Array | null
+  exportedFilename: string
+  isExporting: boolean
+  currentView: EditorMainView
+  toastMessage: string | null
 }
 
 export type PdfEditorActions = {
@@ -80,6 +95,11 @@ export type PdfEditorActions = {
   setActiveCommentId: (id: string | null) => void
   setCommentPanelOpen: (open: boolean) => void
   registerFabric: (page: number, canvas: Canvas) => Promise<void>
+  /** Replace or remove persisted overlay for a page (omit snapshot when canvas had no overlay objects). */
+  savePageOverlaySnapshot: (
+    page: number,
+    snapshot: PageOverlaySnapshot | null,
+  ) => void
   disposeFabric: (page: number) => Promise<void>
   unregisterFabricPage: (page: number) => void
   disposeAllFabric: () => Promise<void>
@@ -98,6 +118,12 @@ export type PdfEditorActions = {
   ) => void
   revertEntries: (entryIds: string[]) => Promise<void>
   undoLast: () => void
+  setCurrentView: (view: EditorMainView) => void
+  setExportResult: (url: string, bytes: Uint8Array, filename: string) => void
+  clearExportResult: () => void
+  setIsExporting: (v: boolean) => void
+  showToast: (message: string) => void
+  dismissToast: () => void
 }
 
 function clampZoom(z: number): number {
@@ -123,6 +149,16 @@ function newSavedSignatureId(): string {
 function slugPdfName(prefix: string): string {
   const s = `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`
   return s.replace(/[^a-zA-Z0-9._-]/g, '_')
+}
+
+function revokeIfUrl(url: string | null): void {
+  if (url) {
+    try {
+      URL.revokeObjectURL(url)
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 async function disposeAllFabricFromMap(
@@ -152,10 +188,17 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
     activeCommentId: null,
     commentPanelOpen: false,
     fabricByPage: new Map(),
+    pageOverlaySnapshots: new Map(),
     pendingImageInsert: null,
     pendingSignature: null,
     savedSignatures: [],
     history: [],
+    exportedBlobUrl: null,
+    exportedBytes: null,
+    exportedFilename: '',
+    isExporting: false,
+    currentView: 'editor',
+    toastMessage: null,
 
     loadPdfFromBytes: async (data, fileName) => {
       const prev = get().pdf
@@ -165,16 +208,20 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         await prev.destroy()
       }
 
-      const sourceCopy = new Uint8Array(data)
-      const loadingTask = getDocument({ data: sourceCopy })
+      const bytesForPdfJs = new Uint8Array(data)
+      const bytesForPdfLib = new Uint8Array(data)
+      const loadingTask = getDocument({ data: bytesForPdfJs })
       const pdf = await loadingTask.promise
+      const prevUrl = get().exportedBlobUrl
+      revokeIfUrl(prevUrl)
       set({
         pdf,
-        pdfSourceBytes: sourceCopy,
+        pdfSourceBytes: bytesForPdfLib,
         pdfFileName: fileName,
         totalPages: pdf.numPages,
         currentPage: 1,
         fabricByPage: new Map(),
+        pageOverlaySnapshots: new Map(),
         zoomLevel: 1,
         activeTool: 'select',
         formFields: [],
@@ -186,6 +233,11 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         pendingImageInsert: null,
         pendingSignature: null,
         history: [],
+        exportedBlobUrl: null,
+        exportedBytes: null,
+        exportedFilename: '',
+        currentView: 'editor',
+        isExporting: false,
       })
     },
 
@@ -366,6 +418,22 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
       })
     },
 
+    savePageOverlaySnapshot: (page, snapshot) => {
+      set((state) => {
+        const next = new Map(state.pageOverlaySnapshots)
+        if (!snapshot || snapshot.objects.length === 0) {
+          next.delete(page)
+        } else {
+          next.set(page, {
+            width: snapshot.width,
+            height: snapshot.height,
+            objects: snapshot.objects.map((o) => ({ ...o })),
+          })
+        }
+        return { pageOverlaySnapshots: next }
+      })
+    },
+
     disposeFabric: async (page) => {
       const c = get().fabricByPage.get(page)
       if (c) {
@@ -450,12 +518,50 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
       void get().revertEntries([first.id])
     },
 
+    setCurrentView: (view) => set({ currentView: view }),
+
+    setExportResult: (url, bytes, filename) => {
+      const prev = get().exportedBlobUrl
+      revokeIfUrl(prev)
+      set({
+        exportedBlobUrl: url,
+        exportedBytes: new Uint8Array(bytes),
+        exportedFilename: filename,
+      })
+    },
+
+    clearExportResult: () => {
+      const prev = get().exportedBlobUrl
+      revokeIfUrl(prev)
+      set({
+        exportedBlobUrl: null,
+        exportedBytes: null,
+        exportedFilename: '',
+      })
+    },
+
+    setIsExporting: (v) => set({ isExporting: v }),
+
+    showToast: (message) => {
+      set({ toastMessage: message })
+      const t = message
+      setTimeout(() => {
+        if (get().toastMessage === t) {
+          set({ toastMessage: null })
+        }
+      }, 4200)
+    },
+
+    dismissToast: () => set({ toastMessage: null }),
+
     reset: async () => {
       const { pdf, fabricByPage } = get()
       await disposeAllFabricFromMap(fabricByPage)
       if (pdf) {
         await pdf.destroy()
       }
+      const prevUrl = get().exportedBlobUrl
+      revokeIfUrl(prevUrl)
       set({
         pdf: null,
         pdfSourceBytes: null,
@@ -474,10 +580,17 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         activeCommentId: null,
         commentPanelOpen: false,
         fabricByPage: new Map(),
+        pageOverlaySnapshots: new Map(),
         pendingImageInsert: null,
         pendingSignature: null,
         savedSignatures: [],
         history: [],
+        exportedBlobUrl: null,
+        exportedBytes: null,
+        exportedFilename: '',
+        isExporting: false,
+        currentView: 'editor',
+        toastMessage: null,
       })
     },
   }),

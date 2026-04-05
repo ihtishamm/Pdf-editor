@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useRef, useState } from 'react'
+import { isLikelyPdfBytes } from '../lib/isLikelyPdfBytes'
 import { usePdfEditorStore } from '../store/pdfEditorStore'
 import { CreateSignatureModal } from './CreateSignatureModal'
 import { UndoHistoryDialog } from './UndoHistoryDialog'
@@ -100,6 +101,12 @@ export function EditorShell({
   const setFormFieldVariant = usePdfEditorStore((s) => s.setFormFieldVariant)
   const history = usePdfEditorStore((s) => s.history)
   const undoLast = usePdfEditorStore((s) => s.undoLast)
+  const fabricByPage = usePdfEditorStore((s) => s.fabricByPage)
+  const pageOverlaySnapshots = usePdfEditorStore((s) => s.pageOverlaySnapshots)
+  const setExportResult = usePdfEditorStore((s) => s.setExportResult)
+  const setCurrentView = usePdfEditorStore((s) => s.setCurrentView)
+  const setIsExporting = usePdfEditorStore((s) => s.setIsExporting)
+  const showToast = usePdfEditorStore((s) => s.showToast)
 
   const [shapesOpen, setShapesOpen] = useState(false)
   const [annotateOpen, setAnnotateOpen] = useState(false)
@@ -556,35 +563,42 @@ export function EditorShell({
       <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
         <button
           type="button"
-          disabled={!pdfSourceBytes}
+          disabled={
+            !pdfSourceBytes ||
+            !isLikelyPdfBytes(pdfSourceBytes) ||
+            totalPages < 1
+          }
           onClick={() => {
-            if (!pdfSourceBytes) return
+            if (!pdfSourceBytes || totalPages < 1) return
+            if (!isLikelyPdfBytes(pdfSourceBytes)) {
+              showToast(
+                'The PDF file data is missing or invalid. Try opening the file again.',
+              )
+              return
+            }
             void (async () => {
+              setIsExporting(true)
               try {
-                const { exportPdfWithFormFields } = await import(
-                  '../lib/pdfFormExport'
+                const { runFullPdfExport } = await import(
+                  '../lib/pdfExportPipeline'
                 )
-                const out = await exportPdfWithFormFields(
-                  pdfSourceBytes,
+                const out = await runFullPdfExport({
+                  originalFileBytes: pdfSourceBytes,
+                  fabricByPage,
+                  pageCount: totalPages,
                   formFields,
                   pdfLinks,
-                )
-                const base = (pdfFileName || 'document').replace(
-                  /\.pdf$/i,
-                  '',
-                )
-                const fileName = `${base}-forms.pdf`
-                const blob = new Blob([out as BlobPart], {
-                  type: 'application/pdf',
+                  baseFileName: pdfFileName || 'document.pdf',
+                  pageOverlaySnapshots,
                 })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = fileName
-                a.click()
-                URL.revokeObjectURL(url)
+                const url = URL.createObjectURL(out.blob)
+                setExportResult(url, out.bytes, out.filename)
+                setCurrentView('ready')
               } catch (e) {
                 console.error('[EditorShell] export failed', e)
+                showToast('Something went wrong. Please try again.')
+              } finally {
+                setIsExporting(false)
               }
             })()
           }}

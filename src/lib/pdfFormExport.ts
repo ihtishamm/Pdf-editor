@@ -28,14 +28,14 @@ function ensureUniqueName(base: string, used: Set<string>): string {
 }
 
 /**
- * Load the original PDF bytes and embed AcroForm widgets matching editor metadata.
+ * Embed AcroForm widgets + link annotations on an already-loaded document.
+ * Call after drawing vector content so fields/links sit above it.
  */
-export async function exportPdfWithFormFields(
-  sourceBytes: Uint8Array,
+export async function applyAcroFormFieldsAndLinks(
+  pdfDoc: PDFDocument,
   fields: FormFieldMeta[],
   pdfLinks: PdfLinkEntry[] = [],
-): Promise<Uint8Array> {
-  const pdfDoc = await PDFDocument.load(sourceBytes, { ignoreEncryption: true })
+): Promise<void> {
   const form = pdfDoc.getForm()
   const pages = pdfDoc.getPages()
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
@@ -109,5 +109,17 @@ export async function exportPdfWithFormFields(
   if (pdfLinks.length) {
     applyPdfLinksToPdfDocument(pdfDoc, pdfLinks)
   }
+}
+
+/**
+ * Load the original PDF bytes and embed AcroForm widgets matching editor metadata.
+ */
+export async function exportPdfWithFormFields(
+  sourceBytes: Uint8Array,
+  fields: FormFieldMeta[],
+  pdfLinks: PdfLinkEntry[] = [],
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.load(sourceBytes, { ignoreEncryption: true })
+  await applyAcroFormFieldsAndLinks(pdfDoc, fields, pdfLinks)
   return pdfDoc.save()
 }
