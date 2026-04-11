@@ -82,6 +82,7 @@ export function TextEditToolbar({ canvas, target }: TextEditToolbarProps) {
       target.set(patch)
       target.setCoords()
       canvas.requestRenderAll()
+      canvas.fire('object:modified', { target })
       bump()
     },
     [canvas, target, bump],

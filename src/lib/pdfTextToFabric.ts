@@ -1,5 +1,6 @@
 import { Canvas, IText } from 'fabric'
 import type { PDFPageProxy, PageViewport } from 'pdfjs-dist'
+import { pdfTextItemToPdfBounds } from './pdfTextGeometry'
 
 /** Inferred from PDF.js `getTextContent()` — avoids importing non-exported API types. */
 export type PdfTextContent = Awaited<ReturnType<PDFPageProxy['getTextContent']>>
@@ -58,36 +59,44 @@ export function pdfTextItemToItextOptions(
     fontFamily,
     fontWeight: 'normal',
     fontStyle: 'normal',
-    fill: 'rgba(0,0,0,0.04)',
+    fill: '#111827',
     strokeWidth: 0,
     backgroundColor: 'transparent',
     editable: true,
     selectable: true,
     evented: true,
     objectCaching: false,
-    data: { pdfTextSource: true as const },
   }
 }
 
-/** Adds one Fabric IText per PDF text run; invisible fill until user edits. */
+export function pdfTextRunId(pageIndex1Based: number, runIndex: number): string {
+  return `p${pageIndex1Based}-t${runIndex}`
+}
+
+/** Adds one Fabric IText per PDF text run (mask layer hides raster duplicate). */
 export function addPdfTextItemsToCanvas(
   fabricCanvas: Canvas,
   textContent: PdfTextContent,
   viewport: PageViewport,
+  pageIndex1Based: number,
 ): void {
+  let runIndex = 0
   for (const item of textContent.items) {
     if (!isTextItem(item)) continue
     if (!item.str.trim()) continue
 
     const opts = pdfTextItemToItextOptions(item, viewport, textContent.styles)
-    const text = new IText(item.str, opts)
+    const originalPdfBounds = pdfTextItemToPdfBounds(item)
+    const runId = pdfTextRunId(pageIndex1Based, runIndex)
+    runIndex += 1
 
-    text.on('editing:entered', () => {
-      const fill = text.fill
-      if (typeof fill === 'string' && fill.startsWith('rgba(0,0,0,0')) {
-        text.set({ fill: '#111827' })
-        fabricCanvas.requestRenderAll()
-      }
+    const text = new IText(item.str, {
+      ...opts,
+      data: {
+        pdfTextSource: true as const,
+        runId,
+        originalPdfBounds,
+      },
     })
 
     fabricCanvas.add(text)

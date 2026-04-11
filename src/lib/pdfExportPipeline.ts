@@ -8,6 +8,7 @@ import {
 import type { FormFieldMeta } from '../types/formFields'
 import type { PdfLinkEntry } from '../types/pdfLinks'
 import type { PageOverlaySnapshot } from './pageOverlaySnapshot'
+import type { PdfNativeTextRunState } from '../types/pdfNativeText'
 import { isLikelyPdfBytes } from './isLikelyPdfBytes'
 
 export type ExportPdfPipelineResult = {
@@ -30,6 +31,7 @@ export async function runFullPdfExport(params: {
   pdfLinks: PdfLinkEntry[]
   baseFileName: string
   pageOverlaySnapshots?: Map<number, PageOverlaySnapshot>
+  pdfNativeTextByPage?: Map<number, Map<string, PdfNativeTextRunState>>
 }): Promise<ExportPdfPipelineResult> {
   const {
     originalFileBytes,
@@ -39,6 +41,7 @@ export async function runFullPdfExport(params: {
     pdfLinks,
     baseFileName,
     pageOverlaySnapshots,
+    pdfNativeTextByPage,
   } = params
 
   if (!isLikelyPdfBytes(originalFileBytes)) {
@@ -56,6 +59,7 @@ export async function runFullPdfExport(params: {
     pageCount,
     fonts,
     pageOverlaySnapshots,
+    pdfNativeTextByPage,
   )
   await applyAcroFormFieldsAndLinks(pdfDoc, formFields, pdfLinks)
 

@@ -33,6 +33,11 @@ import {
   applyPageOverlayToCanvas,
   capturePageOverlay,
 } from '../lib/pageOverlaySnapshot'
+import {
+  attachPdfNativeTextPersistence,
+  applyPdfNativeTextOverridesToCanvas,
+  paintPdfTextMaskLayer,
+} from '../lib/pdfNativeTextPersistence'
 import { addPdfTextItemsToCanvas } from '../lib/pdfTextToFabric'
 import type { FormFieldType } from '../types/formFields'
 
@@ -58,7 +63,7 @@ if (import.meta.env.DEV) {
 
 /**
  * Renders the current PDF page on a base canvas and a Fabric edit layer on top.
- * After each render, PDF.js text is extracted and overlaid with matching invisible IText runs.
+ * After each render, PDF.js text is extracted as Fabric IText; a mask canvas hides the raster duplicate.
  */
 export function PDFViewer() {
   const pdf = usePdfEditorStore((s) => s.pdf)
@@ -91,6 +96,7 @@ export function PDFViewer() {
   const [containerWidth, setContainerWidth] = useState(0)
 
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null)
+  const maskCanvasRef = useRef<HTMLCanvasElement>(null)
 
   const [overlayCanvas, setOverlayCanvas] = useState<Canvas | null>(null)
   const [selectedIText, setSelectedIText] = useState<IText | null>(null)
@@ -114,14 +120,16 @@ export function PDFViewer() {
     if (!pdf || containerWidth <= 0) return
 
     const pdfCanvas = pdfCanvasRef.current
+    const maskCanvas = maskCanvasRef.current
     const fabricHostEl = fabricHostRef.current
-    if (!pdfCanvas || !fabricHostEl) return
+    if (!pdfCanvas || !maskCanvas || !fabricHostEl) return
 
     const ac = new AbortController()
     const { signal } = ac
     let renderTask: RenderTask | null = null
     let detachFabricTools: (() => void) | null = null
     let detachFabricHistory: (() => void) | null = null
+    let detachPdfNativePersistence: (() => void) | null = null
 
     void (async () => {
       const page = await pdf.getPage(currentPage)
@@ -137,6 +145,8 @@ export function PDFViewer() {
 
       pdfCanvas.width = w
       pdfCanvas.height = h
+      maskCanvas.width = w
+      maskCanvas.height = h
 
       renderTask = page.render({
         canvas: pdfCanvas,
@@ -177,7 +187,18 @@ export function PDFViewer() {
       }
 
       fabricHistoryRuntime.runSuppressed(() => {
-        addPdfTextItemsToCanvas(fabricCanvas, textContent, viewport)
+        addPdfTextItemsToCanvas(
+          fabricCanvas,
+          textContent,
+          viewport,
+          currentPage,
+        )
+        applyPdfNativeTextOverridesToCanvas(
+          currentPage,
+          fabricCanvas,
+          w,
+          h,
+        )
         addFormFieldsToCanvas(
           fabricCanvas,
           usePdfEditorStore.getState().formFields,
@@ -218,6 +239,16 @@ export function PDFViewer() {
         (partial) => store().addHistory(partial),
       )
       detachFabricHistory = historyApi.dispose
+
+      const maskCtx = maskCanvas.getContext('2d')
+      if (maskCtx) {
+        paintPdfTextMaskLayer(maskCtx, fabricCanvas, viewport)
+      }
+
+      detachPdfNativePersistence = attachPdfNativeTextPersistence(
+        fabricCanvas,
+        currentPage,
+      )
 
       detachFabricTools = attachFabricCanvasTools(
         fabricCanvas,
@@ -358,6 +389,10 @@ export function PDFViewer() {
           detachFabricHistory()
           detachFabricHistory = null
         }
+        if (detachPdfNativePersistence) {
+          detachPdfNativePersistence()
+          detachPdfNativePersistence = null
+        }
         detachFabricTools()
         detachFabricTools = null
         await fabricCanvas.dispose()
@@ -380,6 +415,10 @@ export function PDFViewer() {
       if (detachFabricHistory) {
         detachFabricHistory()
         detachFabricHistory = null
+      }
+      if (detachPdfNativePersistence) {
+        detachPdfNativePersistence()
+        detachPdfNativePersistence = null
       }
       if (detachFabricTools) {
         detachFabricTools()
@@ -620,6 +659,11 @@ export function PDFViewer() {
           <canvas
             ref={pdfCanvasRef}
             className="relative z-10 block max-w-full bg-white"
+            aria-hidden
+          />
+          <canvas
+            ref={maskCanvasRef}
+            className="pointer-events-none absolute inset-0 z-[15] block max-w-full"
             aria-hidden
           />
           <div

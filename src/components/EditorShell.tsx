@@ -103,6 +103,7 @@ export function EditorShell({
   const undoLast = usePdfEditorStore((s) => s.undoLast)
   const fabricByPage = usePdfEditorStore((s) => s.fabricByPage)
   const pageOverlaySnapshots = usePdfEditorStore((s) => s.pageOverlaySnapshots)
+  const pdfNativeTextByPage = usePdfEditorStore((s) => s.pdfNativeTextByPage)
   const setExportResult = usePdfEditorStore((s) => s.setExportResult)
   const setCurrentView = usePdfEditorStore((s) => s.setCurrentView)
   const setIsExporting = usePdfEditorStore((s) => s.setIsExporting)
@@ -590,6 +591,7 @@ export function EditorShell({
                   pdfLinks,
                   baseFileName: pdfFileName || 'document.pdf',
                   pageOverlaySnapshots,
+                  pdfNativeTextByPage,
                 })
                 const url = URL.createObjectURL(out.blob)
                 setExportResult(url, out.bytes, out.filename)

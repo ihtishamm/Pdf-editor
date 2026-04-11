@@ -15,6 +15,7 @@ import type {
   ShapeVariant,
 } from '../types/editorTools'
 import type { PageOverlaySnapshot } from '../lib/pageOverlaySnapshot'
+import type { PdfNativeTextRunState } from '../types/pdfNativeText'
 
 const MIN_ZOOM = 0.5
 const MAX_HISTORY_ENTRIES = 50
@@ -51,6 +52,11 @@ export type PdfEditorState = {
    * Live canvas in `fabricByPage` wins at export; this backs non-visible pages.
    */
   pageOverlaySnapshots: Map<number, PageOverlaySnapshot>
+  /**
+   * Extracted PDF text runs edited in Fabric, keyed by 1-based page then runId.
+   * Survives canvas rebuild (zoom) and is used when exporting pages without a live Fabric instance.
+   */
+  pdfNativeTextByPage: Map<number, Map<string, PdfNativeTextRunState>>
   /** Picked up by PDFViewer to insert on the current page’s Fabric canvas. */
   pendingImageInsert: File | null
   /** Insert Fabric image from Sign modal (centered, or at last cursor position on overlay). */
@@ -99,6 +105,11 @@ export type PdfEditorActions = {
   savePageOverlaySnapshot: (
     page: number,
     snapshot: PageOverlaySnapshot | null,
+  ) => void
+  setPdfNativeTextRun: (
+    page: number,
+    runId: string,
+    state: PdfNativeTextRunState,
   ) => void
   disposeFabric: (page: number) => Promise<void>
   unregisterFabricPage: (page: number) => void
@@ -189,6 +200,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
     commentPanelOpen: false,
     fabricByPage: new Map(),
     pageOverlaySnapshots: new Map(),
+    pdfNativeTextByPage: new Map(),
     pendingImageInsert: null,
     pendingSignature: null,
     savedSignatures: [],
@@ -222,6 +234,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         currentPage: 1,
         fabricByPage: new Map(),
         pageOverlaySnapshots: new Map(),
+        pdfNativeTextByPage: new Map(),
         zoomLevel: 1,
         activeTool: 'select',
         formFields: [],
@@ -434,6 +447,17 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
       })
     },
 
+    setPdfNativeTextRun: (page, runId, state) => {
+      set((s) => {
+        const outer = new Map(s.pdfNativeTextByPage)
+        const prevInner = outer.get(page) ?? new Map<string, PdfNativeTextRunState>()
+        const inner = new Map(prevInner)
+        inner.set(runId, { ...state })
+        outer.set(page, inner)
+        return { pdfNativeTextByPage: outer }
+      })
+    },
+
     disposeFabric: async (page) => {
       const c = get().fabricByPage.get(page)
       if (c) {
@@ -581,6 +605,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         commentPanelOpen: false,
         fabricByPage: new Map(),
         pageOverlaySnapshots: new Map(),
+        pdfNativeTextByPage: new Map(),
         pendingImageInsert: null,
         pendingSignature: null,
         savedSignatures: [],

@@ -4,7 +4,7 @@ import { fabricHistoryRuntime } from './fabricHistoryRuntime'
 import { isFormFieldObject } from './fabricFormField'
 import { isPdfLinkObject } from './fabricPdfLink'
 
-/** Serialized user-drawn overlay for one page (excludes PDF text layer, AcroForm, link rects). */
+/** Serialized user-drawn overlay for one page (excludes PDF text layer, AcroForm, link rects). Edited native PDF text is stored separately in `pdfNativeTextByPage`. */
 export type PageOverlaySnapshot = {
   width: number
   height: number

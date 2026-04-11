@@ -15,6 +15,8 @@ import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib'
 import { isFormFieldObject } from './fabricFormField'
 import { isPdfLinkObject } from './fabricPdfLink'
 import type { PageOverlaySnapshot } from './pageOverlaySnapshot'
+import { padPdfBounds } from './pdfTextGeometry'
+import type { PdfNativeTextRunState } from '../types/pdfNativeText'
 
 type FabricFonts = {
   helvetica: PDFFont
@@ -74,6 +76,14 @@ function pickStandardFont(
   if (bold) return fonts.helveticaBold
   if (f.includes('times') || f.includes('serif')) return fonts.timesRoman
   if (f.includes('courier') || f.includes('mono')) return fonts.courier
+  if (
+    f.includes('arial') ||
+    f.includes('helvetica') ||
+    f.includes('sans-serif') ||
+    f.includes('system-ui')
+  ) {
+    return fonts.helvetica
+  }
   return fonts.helvetica
 }
 
@@ -129,6 +139,103 @@ export async function embedStandardFabricFonts(
   return { helvetica, helveticaBold, timesRoman, courier }
 }
 
+type PdfTextData = {
+  pdfTextSource?: boolean
+  tool?: string
+  originalPdfBounds?: PdfNativeTextRunState['originalPdfBounds']
+}
+
+function drawFabricITextOnPdfPage(
+  page: PDFPage,
+  obj: IText,
+  cw: number,
+  ch: number,
+  fonts: FabricFonts,
+): void {
+  const { width: pw, height: ph } = page.getSize()
+  const text = obj.text ?? ''
+  if (!text.trim()) return
+  const br = obj.getBoundingRect()
+  const r = fabricRectToPdf(
+    br.left,
+    br.top,
+    br.width,
+    br.height,
+    cw,
+    ch,
+    pw,
+    ph,
+  )
+  const fs = (obj.fontSize ?? 12) * (obj.scaleY ?? 1) * (ph / ch)
+  const col = parseColorOr(obj.fill, { r: 0.07, g: 0.09, b: 0.15 })
+  const bold =
+    obj.fontWeight === 'bold' ||
+    obj.fontWeight === 700 ||
+    obj.fontWeight === '700'
+  const font = pickStandardFont(String(obj.fontFamily ?? ''), bold, fonts)
+  page.drawText(text, {
+    x: r.x,
+    y: r.y,
+    size: Math.max(4, fs),
+    font,
+    color: rgb(col.r, col.g, col.b),
+    rotate: degrees(obj.angle ?? 0),
+    opacity: obj.opacity ?? 1,
+  })
+}
+
+export async function drawStoredPdfNativeTextOnPdfPage(
+  page: PDFPage,
+  runs: Map<string, PdfNativeTextRunState> | undefined,
+  fonts: FabricFonts,
+): Promise<void> {
+  if (!runs?.size) return
+  const { width: pw, height: ph } = page.getSize()
+  const el = document.createElement('canvas')
+  const tmp = new FabricCanvas(el, {
+    width: pw,
+    height: ph,
+  })
+  try {
+    for (const state of runs.values()) {
+      const b = padPdfBounds(state.originalPdfBounds)
+      page.drawRectangle({
+        x: b.minX,
+        y: b.minY,
+        width: b.maxX - b.minX,
+        height: b.maxY - b.minY,
+        color: rgb(1, 1, 1),
+        borderWidth: 0,
+      })
+
+      const fontStyle =
+        state.fontStyle === 'italic' || state.fontStyle === 'oblique'
+          ? 'italic'
+          : 'normal'
+      const t = new IText(state.text, {
+        left: state.relLeft * pw,
+        top: state.relTop * ph,
+        fontSize: state.relFontSize * ph,
+        angle: state.angle,
+        scaleX: state.scaleX,
+        scaleY: state.scaleY,
+        fontFamily: state.fontFamily,
+        fill: state.fill,
+        fontWeight: state.fontWeight,
+        fontStyle,
+        originX: 'left',
+        originY: 'bottom',
+        objectCaching: false,
+      })
+      tmp.add(t)
+      drawFabricITextOnPdfPage(page, t, pw, ph, fonts)
+      tmp.remove(t)
+    }
+  } finally {
+    await tmp.dispose()
+  }
+}
+
 /** Draws exportable overlay objects (same filters as live canvas export). */
 async function drawExportableFabricObjectsOnPdfPage(
   pdfDoc: PDFDocument,
@@ -143,43 +250,24 @@ async function drawExportableFabricObjectsOnPdfPage(
   for (const obj of objects) {
       if (!obj.visible) continue
 
-      const d = (obj as { data?: { pdfTextSource?: boolean; tool?: string } })
-        .data
-      if (d?.pdfTextSource) continue
+      const d = (obj as { data?: PdfTextData }).data
       if (isPdfLinkObject(obj)) continue
       if (isFormFieldObject(obj)) continue
       if (d?.tool === 'commentPin') continue
 
       if (obj instanceof IText) {
-        const text = obj.text ?? ''
-        if (!text.trim()) continue
-        const br = obj.getBoundingRect()
-        const r = fabricRectToPdf(
-          br.left,
-          br.top,
-          br.width,
-          br.height,
-          cw,
-          ch,
-          pw,
-          ph,
-        )
-        const fs = (obj.fontSize ?? 12) * (obj.scaleY ?? 1) * (ph / ch)
-        const col = parseColorOr(obj.fill, { r: 0.07, g: 0.09, b: 0.15 })
-        const bold =
-          obj.fontWeight === 'bold' ||
-          obj.fontWeight === 700 ||
-          obj.fontWeight === '700'
-        const font = pickStandardFont(String(obj.fontFamily ?? ''), bold, fonts)
-        page.drawText(text, {
-          x: r.x,
-          y: r.y,
-          size: Math.max(4, fs),
-          font,
-          color: rgb(col.r, col.g, col.b),
-          rotate: degrees(obj.angle ?? 0),
-          opacity: obj.opacity ?? 1,
-        })
+        if (d?.pdfTextSource && d.originalPdfBounds) {
+          const wb = padPdfBounds(d.originalPdfBounds)
+          page.drawRectangle({
+            x: wb.minX,
+            y: wb.minY,
+            width: wb.maxX - wb.minX,
+            height: wb.maxY - wb.minY,
+            color: rgb(1, 1, 1),
+            borderWidth: 0,
+          })
+        }
+        drawFabricITextOnPdfPage(page, obj, cw, ch, fonts)
         continue
       }
 
@@ -369,6 +457,7 @@ export async function drawFabricOverlaysOnPdfPages(
   pageCount: number,
   fonts: FabricFonts,
   pageOverlaySnapshots?: Map<number, PageOverlaySnapshot>,
+  pdfNativeTextByPage?: Map<number, Map<string, PdfNativeTextRunState>>,
 ): Promise<void> {
   const pages = pdfDoc.getPages()
 
@@ -389,6 +478,12 @@ export async function drawFabricOverlaysOnPdfPages(
       )
       continue
     }
+
+    await drawStoredPdfNativeTextOnPdfPage(
+      pdfPage,
+      pdfNativeTextByPage?.get(pageNum),
+      fonts,
+    )
 
     const snap = pageOverlaySnapshots?.get(pageNum)
     if (!snap?.objects.length) continue
