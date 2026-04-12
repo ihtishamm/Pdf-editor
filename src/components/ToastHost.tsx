@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { usePdfEditorStore } from '../store/pdfEditorStore'
 
 export function ToastHost() {
@@ -8,18 +9,18 @@ export function ToastHost() {
 
   return (
     <div
-      className="fixed bottom-24 left-1/2 z-[400] max-w-md -translate-x-1/2 rounded-lg border border-[#e0e0e0] bg-white px-4 py-3 text-sm text-[#333] shadow-lg"
+      className="fixed bottom-8 left-1/2 z-[400] max-w-md -translate-x-1/2 animate-slide-up rounded-card border border-ring bg-surface px-4 py-3 text-sm shadow-elevated"
       role="status"
     >
       <div className="flex items-start gap-3">
-        <p className="flex-1">{toastMessage}</p>
+        <p className="flex-1 font-medium text-near-black">{toastMessage}</p>
         <button
           type="button"
           onClick={() => dismissToast()}
-          className="shrink-0 text-[#888] hover:text-[#333]"
+          className="shrink-0 rounded-btn p-0.5 text-placeholder transition-colors hover:text-near-black"
           aria-label="Dismiss"
         >
-          ×
+          <X className="h-4 w-4" />
         </button>
       </div>
     </div>

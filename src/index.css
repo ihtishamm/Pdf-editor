@@ -1,15 +1,91 @@
 @import 'tailwindcss';
 
+@theme {
+  /* === Colors === */
+  --color-primary: #5b76fe;
+  --color-primary-hover: #4a63e0;
+  --color-primary-pressed: #2a41b6;
+  --color-accent: #00b473;
+  --color-accent-hover: #009d64;
+  --color-near-black: #1c1c1e;
+  --color-muted: #555a6a;
+  --color-placeholder: #a5a8b5;
+  --color-border: #c7cad5;
+  --color-ring: #e0e2e8;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f8f9fb;
+  --color-input-border: #e9eaef;
+
+  /* Pastel palette (light / dark pairs) */
+  --color-coral: #ffc6c6;
+  --color-coral-dark: #600000;
+  --color-rose-pastel: #ffd8f4;
+  --color-teal-pastel: #c3faf5;
+  --color-teal-dark: #187574;
+  --color-orange-pastel: #ffe6cd;
+  --color-pink-pastel: #fde0f0;
+
+  /* Destructive */
+  --color-destructive: #dc2626;
+  --color-destructive-light: #fef2f2;
+  --color-destructive-border: #fecaca;
+
+  /* === Typography === */
+  --font-display: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-body: 'Noto Sans', system-ui, -apple-system, sans-serif;
+
+  /* === Border Radius === */
+  --radius-btn: 8px;
+  --radius-card: 12px;
+  --radius-panel: 20px;
+  --radius-pill: 40px;
+
+  /* === Shadows === */
+  --shadow-ring: 0 0 0 1px rgb(224 226 232);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 0 0 1px rgb(224 226 232);
+  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.08), 0 0 0 1px rgb(224 226 232);
+  --shadow-modal: 0 8px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgb(224 226 232);
+
+  /* === Animations === */
+  --animate-fade-in: fade-in 0.5s ease-out both;
+  --animate-fade-in-up: fade-in-up 0.6s ease-out both;
+  --animate-fade-in-up-delay: fade-in-up 0.6s ease-out 0.15s both;
+  --animate-slide-up: slide-up 0.4s ease-out both;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 body {
   margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif;
+  font-family: var(--font-body);
+  color: var(--color-near-black);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {

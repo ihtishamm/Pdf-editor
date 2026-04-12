@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import { useState } from 'react'
 import { usePdfEditorStore } from '../store/pdfEditorStore'
+import { Button } from './ui/Button'
 
 type ShareDocumentModalProps = {
   open: boolean
@@ -71,40 +72,42 @@ export function ShareDocumentModal({ open, onClose }: ShareDocumentModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[500] flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-[500] flex items-center justify-center bg-near-black/40 p-4 backdrop-blur-sm"
       role="presentation"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
       <div
-        className="w-full max-w-md rounded-lg border border-[#e5e5e5] bg-white shadow-xl"
+        className="w-full max-w-md rounded-panel border border-ring bg-surface shadow-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="share-doc-title"
       >
-        <div className="flex items-center justify-between border-b border-[#eee] px-4 py-3">
-          <h2 id="share-doc-title" className="text-lg font-semibold text-[#222]">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-ring px-5 py-4">
+          <h2 id="share-doc-title" className="font-display text-lg font-semibold text-near-black">
             Share document
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-[#666] hover:bg-[#f5f5f5]"
+            className="rounded-btn p-1 text-muted transition-colors hover:bg-surface-alt hover:text-near-black"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="flex border-b border-[#eee]">
+        {/* Tabs */}
+        <div className="flex border-b border-ring">
           <button
             type="button"
             onClick={() => setTab('email')}
-            className={`flex-1 px-3 py-2.5 text-sm font-medium ${
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
               tab === 'email'
-                ? 'border-b-2 border-[#00a67e] text-[#00a67e]'
-                : 'text-[#666]'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-muted hover:text-near-black'
             }`}
           >
             Share by email
@@ -112,78 +115,70 @@ export function ShareDocumentModal({ open, onClose }: ShareDocumentModalProps) {
           <button
             type="button"
             onClick={() => setTab('link')}
-            className={`flex-1 px-3 py-2.5 text-sm font-medium ${
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
               tab === 'link'
-                ? 'border-b-2 border-[#00a67e] text-[#00a67e]'
-                : 'text-[#666]'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-muted hover:text-near-black'
             }`}
           >
             Share by link
           </button>
         </div>
 
-        <div className="p-4">
+        {/* Body */}
+        <div className="p-5">
           {tab === 'email' ? (
-            <div className="space-y-3">
-              <p className="text-xs text-[#666]">
-                Browsers cannot attach files via <code className="rounded bg-[#f3f3f3] px-1">mailto:</code>.
-                We open your email app with a message that includes a temporary session link to this file.
+            <div className="space-y-4">
+              <p className="text-xs text-muted">
+                We'll open your email app with a message containing a temporary session link to this file.
               </p>
-              <label className="block text-xs font-medium text-[#555]">
+              <label className="block text-xs font-medium text-muted">
                 Recipient email
                 <input
                   type="email"
                   value={recipient}
                   onChange={(e) => setRecipient(e.target.value)}
                   placeholder="name@example.com"
-                  className="mt-1 w-full rounded border border-[#ddd] px-3 py-2 text-sm"
+                  className="mt-1.5 w-full rounded-btn border border-input-border bg-surface px-3 py-2.5 text-sm text-near-black placeholder:text-placeholder focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
-              <label className="block text-xs font-medium text-[#555]">
+              <label className="block text-xs font-medium text-muted">
                 Message (optional)
                 <textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   rows={3}
-                  className="mt-1 w-full rounded border border-[#ddd] px-3 py-2 text-sm"
+                  className="mt-1.5 w-full rounded-btn border border-input-border bg-surface px-3 py-2.5 text-sm text-near-black placeholder:text-placeholder focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
-              <button
-                type="button"
-                onClick={sendMailto}
-                className="w-full rounded-md bg-[#00a67e] py-2.5 text-sm font-semibold text-white hover:bg-[#00916d]"
-              >
+              <Button variant="primary" className="w-full" onClick={sendMailto}>
                 Send
-              </button>
+              </Button>
               {typeof navigator !== 'undefined' && 'share' in navigator && (
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  className="w-full"
                   onClick={() => void tryNativeShare()}
-                  className="w-full rounded-md border border-[#ddd] py-2 text-sm text-[#333] hover:bg-[#fafafa]"
                 >
                   Use device share…
-                </button>
+                </Button>
               )}
             </div>
           ) : (
-            <div className="space-y-3">
-              <label className="block text-xs font-medium text-[#555]">
+            <div className="space-y-4">
+              <label className="block text-xs font-medium text-muted">
                 Temporary link
                 <input
                   readOnly
                   value={shareLink}
-                  className="mt-1 w-full rounded border border-[#ddd] bg-[#fafafa] px-3 py-2 font-mono text-xs"
+                  className="mt-1.5 w-full rounded-btn border border-input-border bg-surface-alt px-3 py-2.5 font-mono text-xs text-near-black focus:outline-none"
                 />
               </label>
-              <button
-                type="button"
-                onClick={() => void copyLink()}
-                className="w-full rounded-md bg-[#00a67e] py-2.5 text-sm font-semibold text-white hover:bg-[#00916d]"
-              >
+              <Button variant="primary" className="w-full" onClick={() => void copyLink()}>
                 Copy link
-              </button>
-              <p className="text-xs text-[#888]">
-                This link is temporary and works only in this browser session. It is not uploaded to a server.
+              </Button>
+              <p className="text-xs text-muted">
+                This link is temporary and works only in this browser session. Nothing is uploaded to a server.
               </p>
             </div>
           )}

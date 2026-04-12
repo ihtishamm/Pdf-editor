@@ -5,14 +5,15 @@ import {
   ChevronRight,
   Download,
   FileText,
-  Pencil,
   Printer,
   RotateCcw,
   Share2,
   Trash2,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { usePdfEditorStore } from '../store/pdfEditorStore'
+import { Button } from './ui/Button'
 import { ShareDocumentModal } from './ShareDocumentModal'
 
 const MORE_ACTIONS = [
@@ -127,82 +128,88 @@ export function DocumentReadyScreen() {
   const primaryActions = ['Edit', 'Compress', 'Extract Pages', 'Merge', 'Crop'] as const
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#f5f5f5] text-[#333]">
+    <div className="flex min-h-dvh flex-col bg-surface-alt text-near-black">
       <ShareDocumentModal open={shareOpen} onClose={() => setShareOpen(false)} />
 
-      <header className="sticky top-0 z-20 border-b border-[#e5e5e5] bg-white px-4 py-3">
-        <div className="mx-auto flex max-w-6xl items-center gap-3">
+      {/* ─── Header ─── */}
+      <header className="sticky top-0 z-20 border-b border-ring bg-surface">
+        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
           <button
             type="button"
             onClick={backToEditor}
-            className="rounded p-2 text-[#666] hover:bg-[#f0f0f0]"
-            aria-label="Close"
+            className="rounded-btn p-2 text-muted transition-colors hover:bg-surface-alt hover:text-near-black"
+            aria-label="Back to editor"
           >
-            ×
+            <ArrowLeft className="h-5 w-5" />
           </button>
-          <div className="flex flex-1 items-center justify-center gap-2 sm:justify-start">
+          <div className="flex flex-1 items-center gap-2.5">
             <CheckCircle2
-              className="h-8 w-8 shrink-0 text-[#00a67e]"
+              className="h-6 w-6 shrink-0 text-accent"
               strokeWidth={2}
               aria-hidden
             />
-            <h1 className="text-lg font-bold text-[#222] sm:text-xl">
+            <h1 className="font-display text-base font-semibold text-near-black sm:text-lg">
               Your document is ready
             </h1>
           </div>
+          <Link to="/" className="flex items-center gap-2 text-muted transition-colors hover:text-near-black">
+            <span className="flex h-6 w-6 items-center justify-center rounded-[6px] bg-primary font-display text-[10px] font-bold text-white">
+              P
+            </span>
+            <span className="hidden font-display text-sm font-semibold sm:block">PDF Studio</span>
+          </Link>
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 lg:flex-row">
-        <main className="min-w-0 flex-1 space-y-4">
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#e8e8e8] bg-white px-4 py-3">
-            <FileText className="h-5 w-5 text-[#40a9ff]" aria-hidden />
-            <span className="max-w-[200px] flex-1 truncate text-sm font-medium">
-              {displayName}
-            </span>
-            <button
-              type="button"
-              onClick={backToEditor}
-              className="rounded p-1.5 text-[#40a9ff] hover:bg-[#f0f8ff]"
-              title="Edit in editor"
-              aria-label="Edit in editor"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
+      {/* ─── Content ─── */}
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 lg:flex-row">
+        {/* Main area */}
+        <main className="min-w-0 flex-1 space-y-5">
+          {/* File info */}
+          <div className="flex items-center gap-3 rounded-card border border-ring bg-surface p-4 shadow-card">
+            <div className="flex h-10 w-10 items-center justify-center rounded-card bg-primary/8">
+              <FileText className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-near-black">{displayName}</p>
+              <p className="text-xs text-muted">Ready to download</p>
+            </div>
           </div>
 
-          <div className="relative flex rounded-lg border border-[#e8e8e8] bg-white">
-            <button
-              type="button"
+          {/* Download */}
+          <div className="relative flex rounded-card overflow-hidden shadow-card">
+            <Button
+              variant="primary"
+              size="lg"
+              className="flex-1 rounded-none rounded-l-card"
               onClick={() => triggerDownload(false)}
-              className="flex min-h-[48px] flex-1 items-center gap-2 rounded-l-lg bg-[#00a67e] px-4 py-3 text-left font-semibold text-white hover:bg-[#00916d]"
             >
-              <Download className="h-5 w-5 shrink-0" />
+              <Download className="h-5 w-5" />
               Download
-            </button>
+            </Button>
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setDownloadOpen((o) => !o)}
-                className="flex h-full min-h-[48px] items-center border-l border-white/30 px-3 text-white hover:bg-[#00916d]"
+                className="flex h-full items-center border-l border-white/20 bg-primary px-3 text-white transition-colors hover:bg-primary-hover"
                 aria-expanded={downloadOpen}
                 aria-label="Download options"
               >
-                <ChevronDown className="h-5 w-5" />
+                <ChevronDown className="h-4 w-4" />
               </button>
               {downloadOpen ? (
-                <div className="absolute right-0 top-full z-30 mt-1 min-w-[200px] rounded-md border border-[#e5e5e5] bg-white py-1 shadow-lg">
+                <div className="absolute right-0 top-full z-30 mt-1.5 min-w-[200px] rounded-card border border-ring bg-surface py-1 shadow-elevated">
                   <button
                     type="button"
                     onClick={() => triggerDownload(false)}
-                    className="block w-full px-4 py-2 text-left text-sm hover:bg-[#f5f5f5]"
+                    className="block w-full px-4 py-2.5 text-left text-sm font-medium text-near-black transition-colors hover:bg-surface-alt"
                   >
                     Download
                   </button>
                   <button
                     type="button"
                     onClick={() => triggerDownload(true)}
-                    className="block w-full px-4 py-2 text-left text-sm hover:bg-[#f5f5f5]"
+                    className="block w-full px-4 py-2.5 text-left text-sm font-medium text-near-black transition-colors hover:bg-surface-alt"
                   >
                     Download as PDF/A
                   </button>
@@ -211,41 +218,35 @@ export function DocumentReadyScreen() {
             </div>
           </div>
 
+          {/* Share & Print */}
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setShareOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-[#ddd] bg-white px-4 py-2.5 text-sm font-medium hover:bg-[#fafafa]"
-            >
+            <Button variant="secondary" onClick={() => setShareOpen(true)}>
               <Share2 className="h-4 w-4" />
               Share
-            </button>
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="inline-flex items-center gap-2 rounded-lg border border-[#ddd] bg-white px-4 py-2.5 text-sm font-medium hover:bg-[#fafafa]"
-            >
+            </Button>
+            <Button variant="secondary" onClick={handlePrint}>
               <Printer className="h-4 w-4" />
               Print
-            </button>
+            </Button>
           </div>
 
-          <details className="rounded-lg border border-[#e8e8e8] bg-white">
-            <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-[#333]">
-              PDF preview
-            </summary>
-            <div className="border-t border-[#eee]">
+          {/* Preview */}
+          <div className="overflow-hidden rounded-card border border-ring bg-surface shadow-card">
+            <div className="border-b border-ring px-4 py-3">
+              <p className="text-sm font-semibold text-near-black">PDF Preview</p>
+            </div>
+            <div>
               {exportedBlobUrl ? (
                 <>
                   {previewFailed ? (
-                    <p className="px-4 py-8 text-center text-sm text-[#888]">
+                    <p className="px-4 py-10 text-center text-sm text-muted">
                       Preview unavailable. You can still download the file.
                     </p>
                   ) : null}
                   <iframe
                     title="Exported PDF preview"
                     src={exportedBlobUrl}
-                    className={`h-[min(70vh,640px)] w-full ${previewFailed ? 'hidden' : ''}`}
+                    className={`h-[min(65vh,600px)] w-full ${previewFailed ? 'hidden' : ''}`}
                     onLoad={() => {
                       previewLoadedRef.current = true
                       setPreviewFailed(false)
@@ -253,85 +254,84 @@ export function DocumentReadyScreen() {
                   />
                 </>
               ) : (
-                <p className="px-4 py-8 text-center text-sm text-[#888]">
-                  No preview.
+                <p className="px-4 py-10 text-center text-sm text-muted">
+                  No preview available.
                 </p>
               )}
             </div>
-          </details>
+          </div>
         </main>
 
-        <aside className="w-full shrink-0 space-y-4 lg:w-72">
-          <p className="text-xs font-semibold tracking-wide text-[#888]">
-            CONTINUE EDITING THIS DOCUMENT
+        {/* Sidebar */}
+        <aside className="w-full shrink-0 space-y-5 lg:w-64">
+          <p className="font-display text-xs font-semibold uppercase tracking-wider text-placeholder">
+            Continue editing
           </p>
-          <ul className="overflow-hidden rounded-lg border border-[#e8e8e8] bg-white">
+          <div className="overflow-hidden rounded-card border border-ring bg-surface shadow-card">
             {primaryActions.map((label) => (
-              <li key={label} className="border-b border-[#f0f0f0] last:border-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (label === 'Edit') {
-                      backToEditor()
-                    } else {
-                      showToast('Coming soon.')
-                    }
-                  }}
-                  className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-[#fafafa]"
-                >
-                  {label}
-                  <ChevronRight className="h-4 w-4 text-[#bbb]" />
-                </button>
-              </li>
+              <button
+                key={label}
+                type="button"
+                onClick={() => {
+                  if (label === 'Edit') {
+                    backToEditor()
+                  } else {
+                    showToast('Coming soon.')
+                  }
+                }}
+                className="flex w-full items-center justify-between border-b border-ring px-4 py-3 text-left text-sm font-medium text-near-black transition-colors last:border-0 hover:bg-surface-alt"
+              >
+                {label}
+                <ChevronRight className="h-4 w-4 text-placeholder" />
+              </button>
             ))}
             {showMore
               ? MORE_ACTIONS.map((label) => (
-                  <li key={label} className="border-b border-[#f0f0f0] last:border-0">
-                    <button
-                      type="button"
-                      onClick={() => showToast('Coming soon.')}
-                      className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-[#fafafa]"
-                    >
-                      {label}
-                      <ChevronRight className="h-4 w-4 text-[#bbb]" />
-                    </button>
-                  </li>
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => showToast('Coming soon.')}
+                    className="flex w-full items-center justify-between border-b border-ring px-4 py-3 text-left text-sm font-medium text-near-black transition-colors last:border-0 hover:bg-surface-alt"
+                  >
+                    {label}
+                    <ChevronRight className="h-4 w-4 text-placeholder" />
+                  </button>
                 ))
               : null}
-          </ul>
+          </div>
           <button
             type="button"
             onClick={() => setShowMore((m) => !m)}
-            className="text-sm font-medium text-[#00a67e] hover:underline"
+            className="text-sm font-medium text-primary transition-colors hover:text-primary-hover hover:underline"
           >
             {showMore ? 'Show less' : 'Show more'}
           </button>
 
-          <div className="space-y-2 pt-4">
-            <button
-              type="button"
+          <div className="space-y-2 pt-3">
+            <Button
+              variant="secondary"
+              className="w-full"
               onClick={backToEditor}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#ddd] bg-white py-2.5 text-sm font-medium hover:bg-[#fafafa]"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to editing
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full"
               onClick={() => void startOver()}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#ddd] bg-white py-2.5 text-sm font-medium hover:bg-[#fafafa]"
             >
               <RotateCcw className="h-4 w-4" />
               Start over
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="destructive"
+              className="w-full"
               onClick={() => void deleteFiles()}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#fecaca] bg-[#fff5f5] py-2.5 text-sm font-medium text-[#b91c1c] hover:bg-[#fee2e2]"
             >
               <Trash2 className="h-4 w-4" />
               Delete files
-            </button>
+            </Button>
           </div>
         </aside>
       </div>

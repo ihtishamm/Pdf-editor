@@ -7,17 +7,17 @@ export function ExportingOverlay() {
 
   return (
     <div
-      className="fixed inset-0 z-[350] flex flex-col items-center justify-center gap-4 bg-white/85 backdrop-blur-sm"
+      className="fixed inset-0 z-[350] flex flex-col items-center justify-center gap-4 bg-surface/85 backdrop-blur-sm"
       role="alert"
       aria-busy="true"
       aria-live="polite"
     >
       <Loader2
-        className="h-12 w-12 animate-spin text-[#00a67e]"
+        className="h-10 w-10 animate-spin text-primary"
         strokeWidth={2}
         aria-hidden
       />
-      <p className="text-lg font-medium text-[#333]">Applying changes…</p>
+      <p className="font-display text-lg font-medium text-near-black">Applying changes…</p>
     </div>
   )
 }

@@ -58,17 +58,17 @@ function ThumbnailPage({
     <button
       type="button"
       onClick={() => onSelect(pageNumber)}
-      className={`flex w-full flex-col gap-1 rounded border bg-white p-1 text-left transition hover:bg-slate-50 ${
+      className={`flex w-full flex-col gap-1 rounded-card border bg-surface p-1.5 text-left transition-all ${
         isActive
-          ? 'border-[#40a9ff] ring-2 ring-[#b3d7ff]'
-          : 'border-[#d9d9d9]'
+          ? 'border-primary shadow-[0_0_0_2px_rgba(91,118,254,0.2)]'
+          : 'border-ring hover:border-border hover:shadow-card'
       }`}
     >
       <canvas
         ref={canvasRef}
-        className="mx-auto block max-h-[140px] w-full bg-white object-contain"
+        className="mx-auto block max-h-[140px] w-full bg-surface object-contain"
       />
-      <span className="text-center text-xs text-slate-600">{pageNumber}</span>
+      <span className="text-center font-display text-xs font-medium text-muted">{pageNumber}</span>
     </button>
   )
 }
@@ -87,8 +87,8 @@ export function ThumbnailSidebar({
   onSelectPage,
 }: ThumbnailSidebarProps) {
   return (
-    <aside className="flex w-[140px] shrink-0 flex-col gap-2 overflow-y-auto border-l border-[#e8e8e8] bg-[#fafafa] px-2 py-3">
-      <p className="px-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+    <aside className="flex w-[140px] shrink-0 flex-col gap-2 overflow-y-auto border-l border-ring bg-surface-alt px-2 py-3">
+      <p className="px-1 font-display text-[11px] font-semibold uppercase tracking-wider text-placeholder">
         Pages
       </p>
       {Array.from({ length: totalPages }, (_, i) => i + 1).map((num) => (
