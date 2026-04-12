@@ -186,18 +186,18 @@ export function ShapePropertiesToolbar({
   return createPortal(
     <div
       ref={toolbarRef}
-      className="fixed z-99 flex max-w-[min(100vw-16px,480px)] flex-wrap items-center gap-2 rounded-lg border border-[#b3d7ff] bg-white px-3 py-2 text-sm shadow-lg"
+      className="fixed z-99 flex max-w-[min(100vw-16px,480px)] flex-wrap items-center gap-2 rounded-lg border border-ring bg-surface-alt px-3 py-2 text-sm shadow-elevated"
       role="toolbar"
       aria-label={`${title} properties`}
     >
-      <span className="text-xs font-medium text-slate-500">{title}</span>
+      <span className="text-xs font-medium text-muted">{title}</span>
 
       {(kind === 'shape' || kind === 'whiteout' || kind === 'annotate-line') && (
         <label className="flex items-center gap-1">
-          <span className="text-slate-500">Border</span>
+          <span className="text-muted">Border</span>
           <input
             type="color"
-            className="h-8 w-10 cursor-pointer rounded border border-slate-300 bg-white p-0"
+            className="h-8 w-10 cursor-pointer rounded border border-ring bg-surface-3 p-0"
             value={stroke}
             onChange={(e) => {
               apply({ stroke: e.target.value })
@@ -208,10 +208,10 @@ export function ShapePropertiesToolbar({
 
       {(kind === 'shape' || kind === 'whiteout' || kind === 'annotate-hl') && (
         <label className="flex items-center gap-1">
-          <span className="text-slate-500">Fill</span>
+          <span className="text-muted">Fill</span>
           <input
             type="color"
-            className="h-8 w-10 cursor-pointer rounded border border-slate-300 bg-white p-0"
+            className="h-8 w-10 cursor-pointer rounded border border-ring bg-surface-3 p-0"
             value={fillForPicker}
             onChange={(e) => {
               if (kind === 'annotate-hl') {
@@ -225,7 +225,7 @@ export function ShapePropertiesToolbar({
           {(kind === 'shape' || kind === 'annotate-hl') && (
             <button
               type="button"
-              className="rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-600 hover:bg-slate-50"
+              className="rounded border border-ring px-1.5 py-0.5 text-xs text-muted hover:bg-surface-3"
               onClick={() => apply({ fill: 'transparent' })}
             >
               None
@@ -236,7 +236,7 @@ export function ShapePropertiesToolbar({
 
       {kind === 'annotate-hl' && (
         <label className="flex items-center gap-1">
-          <span className="text-slate-500">Fill α</span>
+          <span className="text-muted">Fill α</span>
           <input
             type="range"
             min={0}
@@ -254,12 +254,12 @@ export function ShapePropertiesToolbar({
 
       {(kind === 'shape' || kind === 'whiteout' || kind === 'annotate-line') && (
         <label className="flex items-center gap-1">
-          <span className="text-slate-500">Width</span>
+          <span className="text-muted">Width</span>
           <input
             type="number"
             min={0}
             max={48}
-            className="w-14 rounded border border-slate-300 px-1 py-1"
+            className="w-14 rounded border border-ring bg-surface-3 px-1 py-1 text-text"
             value={Math.round(strokeWidth)}
             onChange={(e) => {
               const n = Number(e.target.value)
@@ -272,7 +272,7 @@ export function ShapePropertiesToolbar({
 
       {kind === 'whiteout' && (
         <label className="flex items-center gap-1">
-          <span className="text-slate-500">Opacity</span>
+          <span className="text-muted">Opacity</span>
           <input
             type="range"
             min={0}

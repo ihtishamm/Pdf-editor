@@ -98,46 +98,46 @@ export function FormFieldFloatingToolbar({
   return createPortal(
     <div
       ref={toolbarRef}
-      className="fixed z-[200] flex max-w-[min(100vw-16px,520px)] flex-wrap items-center gap-2 rounded-lg border border-[#b3d7ff] bg-white px-2.5 py-2 text-sm shadow-lg"
+      className="fixed z-[200] flex max-w-[min(100vw-16px,520px)] flex-wrap items-center gap-2 rounded-lg border border-ring bg-surface-alt px-2.5 py-2 text-sm shadow-elevated"
       role="toolbar"
       aria-label="Form field"
     >
       <label className="flex items-center gap-1">
-        <span className="whitespace-nowrap text-xs text-slate-500">Name</span>
+        <span className="whitespace-nowrap text-xs text-muted">Name</span>
         <input
           type="text"
           value={meta.name}
           onChange={(e) => onPatch({ name: e.target.value })}
-          className="w-[120px] rounded border border-slate-300 px-1.5 py-1 text-xs text-slate-800"
+          className="w-[120px] rounded border border-ring bg-surface-3 px-1.5 py-1 text-xs text-text"
         />
       </label>
 
       <label className="flex items-center gap-1">
-        <span className="text-xs text-slate-500">Border</span>
+        <span className="text-xs text-muted">Border</span>
         <input
           type="color"
-          className="h-8 w-9 cursor-pointer rounded border border-slate-300 bg-white p-0"
+          className="h-8 w-9 cursor-pointer rounded border border-ring bg-surface-3 p-0"
           value={meta.borderColor}
           onChange={(e) => onPatch({ borderColor: e.target.value })}
         />
       </label>
 
       <label className="flex items-center gap-1">
-        <span className="text-xs text-slate-500">Text</span>
+        <span className="text-xs text-muted">Text</span>
         <input
           type="color"
-          className="h-8 w-9 cursor-pointer rounded border border-slate-300 bg-white p-0"
+          className="h-8 w-9 cursor-pointer rounded border border-ring bg-surface-3 p-0"
           value={meta.textColor}
           onChange={(e) => onPatch({ textColor: e.target.value })}
         />
       </label>
 
       <label className="flex items-center gap-1">
-        <span className="text-xs text-slate-500">Size</span>
+        <span className="text-xs text-muted">Size</span>
         <select
           value={meta.fontSize}
           onChange={(e) => onPatch({ fontSize: Number(e.target.value) })}
-          className="rounded border border-slate-300 bg-white px-1 py-1 text-xs text-slate-800"
+          className="rounded border border-ring bg-surface-3 px-1 py-1 text-xs text-text"
         >
           {!FONT_SIZES.includes(meta.fontSize as (typeof FONT_SIZES)[number]) ? (
             <option value={meta.fontSize}>{meta.fontSize}px</option>
@@ -153,7 +153,7 @@ export function FormFieldFloatingToolbar({
       <button
         type="button"
         onClick={onDelete}
-        className="ml-0.5 flex h-8 w-8 items-center justify-center rounded border border-red-200 text-red-600 hover:bg-red-50"
+        className="ml-0.5 flex h-8 w-8 items-center justify-center rounded border border-destructive/30 text-destructive hover:bg-destructive/10"
         aria-label="Delete form field"
         title="Delete field"
       >

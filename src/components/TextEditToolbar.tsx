@@ -101,14 +101,14 @@ export function TextEditToolbar({ canvas, target }: TextEditToolbarProps) {
   return createPortal(
     <div
       ref={toolbarRef}
-      className="fixed z-[100] flex max-w-[min(100vw-16px,480px)] flex-wrap items-center gap-2 rounded-lg border border-[#b3d7ff] bg-white px-3 py-2 text-sm shadow-lg"
+      className="fixed z-[100] flex max-w-[min(100vw-16px,480px)] flex-wrap items-center gap-2 rounded-lg border border-ring bg-surface-alt px-3 py-2 text-sm shadow-elevated"
       role="toolbar"
       aria-label="Text formatting"
     >
       <label className="flex items-center gap-1">
         <span className="sr-only">Font</span>
         <select
-          className="max-w-[180px] rounded border border-slate-300 bg-white px-1 py-1"
+          className="max-w-[180px] rounded border border-ring bg-surface-3 px-1 py-1 text-text"
           value={fontFamily}
           onChange={(e) => {
             apply({ fontFamily: e.target.value })
@@ -125,12 +125,12 @@ export function TextEditToolbar({ canvas, target }: TextEditToolbarProps) {
         </select>
       </label>
       <label className="flex items-center gap-1">
-        <span className="text-slate-500">Size</span>
+        <span className="text-muted">Size</span>
         <input
           type="number"
           min={4}
           max={400}
-          className="w-16 rounded border border-slate-300 px-1 py-1"
+          className="w-16 rounded border border-ring bg-surface-3 px-1 py-1 text-text"
           value={Math.round(fontSize)}
           onChange={(e) => {
             const n = Number(e.target.value)
@@ -141,7 +141,7 @@ export function TextEditToolbar({ canvas, target }: TextEditToolbarProps) {
       </label>
       <button
         type="button"
-        className={`rounded border px-2 py-1 font-bold ${bold ? 'border-[#40a9ff] bg-[#f0f8ff]' : 'border-slate-300 bg-white'}`}
+        className={`rounded border px-2 py-1 font-bold ${bold ? 'border-primary/50 bg-primary/10 text-primary' : 'border-ring bg-surface-3 text-muted'}`}
         aria-pressed={bold}
         onClick={() => {
           apply({ fontWeight: bold ? 'normal' : 'bold' })
@@ -151,7 +151,7 @@ export function TextEditToolbar({ canvas, target }: TextEditToolbarProps) {
       </button>
       <button
         type="button"
-        className={`rounded border px-2 py-1 italic ${italic ? 'border-[#40a9ff] bg-[#f0f8ff]' : 'border-slate-300 bg-white'}`}
+        className={`rounded border px-2 py-1 italic ${italic ? 'border-primary/50 bg-primary/10 text-primary' : 'border-ring bg-surface-3 text-muted'}`}
         aria-pressed={italic}
         onClick={() => {
           apply({ fontStyle: italic ? 'normal' : 'italic' })
@@ -163,7 +163,7 @@ export function TextEditToolbar({ canvas, target }: TextEditToolbarProps) {
         <span className="sr-only">Color</span>
         <input
           type="color"
-          className="h-8 w-10 cursor-pointer rounded border border-slate-300 bg-white p-0"
+          className="h-8 w-10 cursor-pointer rounded border border-ring bg-surface-3 p-0"
           value={color}
           onChange={(e) => {
             apply({ fill: e.target.value })

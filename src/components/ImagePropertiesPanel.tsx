@@ -62,13 +62,13 @@ export function ImagePropertiesPanel({
   return (
     <aside
       data-rerender={tick}
-      className={`fixed top-24 z-[95] w-[min(100vw-16px,280px)] rounded-lg border border-[#b3d7ff] bg-white p-4 shadow-lg ${
+      className={`fixed top-24 z-[95] w-[min(100vw-16px,280px)] rounded-lg border border-ring bg-surface-alt p-4 shadow-elevated ${
         commentPanelOpen ? 'right-[min(360px,92vw)] max-md:right-2' : 'right-2'
       }`}
       aria-label="Image properties"
     >
-      <h3 className="mb-3 text-sm font-semibold text-[#333]">Image</h3>
-      <label className="mb-4 block text-xs text-[#666]">
+      <h3 className="mb-3 text-sm font-semibold text-text">Image</h3>
+      <label className="mb-4 block text-xs text-muted">
         Opacity
         <input
           type="range"
@@ -86,7 +86,7 @@ export function ImagePropertiesPanel({
         <button
           type="button"
           className={`rounded border px-2 py-1.5 text-xs ${
-            flipX ? 'border-[#40a9ff] bg-[#f0f8ff]' : 'border-slate-300 bg-white'
+            flipX ? 'border-primary/50 bg-primary/10 text-primary' : 'border-ring bg-surface-3 text-muted'
           }`}
           aria-pressed={flipX}
           onClick={() => {
@@ -99,7 +99,7 @@ export function ImagePropertiesPanel({
         <button
           type="button"
           className={`rounded border px-2 py-1.5 text-xs ${
-            flipY ? 'border-[#40a9ff] bg-[#f0f8ff]' : 'border-slate-300 bg-white'
+            flipY ? 'border-primary/50 bg-primary/10 text-primary' : 'border-ring bg-surface-3 text-muted'
           }`}
           aria-pressed={flipY}
           onClick={() => {
@@ -113,7 +113,7 @@ export function ImagePropertiesPanel({
       <div className="flex flex-col gap-2">
         <button
           type="button"
-          className="flex items-center justify-center gap-1 rounded border border-slate-300 bg-white px-2 py-2 text-xs hover:bg-slate-50"
+          className="flex items-center justify-center gap-1 rounded border border-ring bg-surface-3 px-2 py-2 text-xs text-muted hover:bg-surface-3/80"
           onClick={() => {
             if (!canvas || !target) return
             canvas.bringObjectForward(target)
@@ -126,7 +126,7 @@ export function ImagePropertiesPanel({
         </button>
         <button
           type="button"
-          className="flex items-center justify-center gap-1 rounded border border-slate-300 bg-white px-2 py-2 text-xs hover:bg-slate-50"
+          className="flex items-center justify-center gap-1 rounded border border-ring bg-surface-3 px-2 py-2 text-xs text-muted hover:bg-surface-3/80"
           onClick={() => {
             if (!canvas || !target) return
             canvas.sendObjectBackwards(target)
@@ -138,7 +138,7 @@ export function ImagePropertiesPanel({
           Send backward
         </button>
       </div>
-      <p className="mt-3 text-[10px] leading-snug text-[#888]">
+      <p className="mt-3 text-[10px] leading-snug text-placeholder">
         Hold Shift while resizing a corner to lock aspect ratio (Fabric {''}
         default).
       </p>

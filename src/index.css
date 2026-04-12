@@ -280,29 +280,46 @@ body {
    ============================================================ */
 
 .editor-theme {
-  --color-primary: #5b76fe;
-  --color-primary-hover: #4a63e0;
-  --color-primary-pressed: #2a41b6;
-  --color-accent: #00b473;
-  --color-accent-hover: #009d64;
-  --color-near-black: #1c1c1e;
-  --color-off-black: #f8f9fb;
-  --color-surface: #ffffff;
-  --color-surface-alt: #f8f9fb;
-  --color-surface-3: #f0f1f3;
-  --color-text: #1c1c1e;
-  --color-muted: #555a6a;
-  --color-placeholder: #a5a8b5;
-  --color-border: #c7cad5;
-  --color-ring: #e0e2e8;
-  --color-input-border: #e9eaef;
-  --shadow-ring: 0 0 0 1px rgb(224 226 232);
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 0 0 1px rgb(224 226 232);
-  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.08), 0 0 0 1px rgb(224 226 232);
-  --shadow-modal: 0 8px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgb(224 226 232);
+  --color-primary: #ff4d2e;
+  --color-primary-hover: #ff6244;
+  --color-primary-pressed: #cc3a22;
+  --color-accent: #ff7a5c;
+  --color-accent-hover: #ff6244;
+  --color-near-black: #f0ede8;
+  --color-off-black: #111114;
+  --color-surface: #16161a;
+  --color-surface-alt: #1e1e24;
+  --color-surface-3: #26262e;
+  --color-surface-4: #2e2e38;
+  --color-text: #f0ede8;
+  --color-muted: rgba(240, 237, 232, 0.5);
+  --color-placeholder: rgba(240, 237, 232, 0.25);
+  --color-border: rgba(255, 255, 255, 0.07);
+  --color-ring: rgba(255, 255, 255, 0.12);
+  --color-input-border: rgba(255, 255, 255, 0.18);
+  --color-destructive: #dc2626;
+  --color-destructive-light: rgba(220, 38, 38, 0.1);
+  --color-destructive-border: rgba(220, 38, 38, 0.25);
+  --shadow-ring: 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
 
   color: var(--color-text);
-  background: var(--color-surface);
+  background: var(--color-off-black);
+}
+
+.editor-theme ::-webkit-scrollbar { width: 6px; height: 6px; }
+.editor-theme ::-webkit-scrollbar-track { background: transparent; }
+.editor-theme ::-webkit-scrollbar-thumb { background: var(--color-surface-3); border-radius: 3px; }
+
+.editor-canvas-bg {
+  background-color: #1a1a20;
+  background-image:
+    radial-gradient(circle at 50% 0%, rgba(255, 77, 46, 0.04) 0%, transparent 60%),
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: auto, 24px 24px, 24px 24px;
 }
 
 /* Fabric canvas alignment (editor) */

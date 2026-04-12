@@ -77,16 +77,16 @@ export function LinkPropertiesPopover({
       <div
         role="dialog"
         aria-labelledby="link-props-title"
-        className="fixed z-[120] w-[min(calc(100vw-16px),320px)] rounded-lg border border-[#b3d7ff] bg-white p-4 shadow-xl"
+        className="fixed z-[120] w-[min(calc(100vw-16px),320px)] rounded-lg border border-ring bg-surface-alt p-4 shadow-elevated"
         style={{ left: pos.left, top: pos.top }}
       >
         <div className="mb-3 flex items-start justify-between gap-2">
-          <h2 id="link-props-title" className="text-sm font-semibold text-[#333]">
+          <h2 id="link-props-title" className="text-sm font-semibold text-text">
             Link Properties
           </h2>
           <button
             type="button"
-            className="shrink-0 rounded p-1 text-[#666] hover:bg-slate-100"
+            className="shrink-0 rounded p-1 text-muted hover:bg-surface-3"
             aria-label="Close"
             onClick={onClose}
           >
@@ -99,7 +99,7 @@ export function LinkPropertiesPopover({
           {TYPE_OPTIONS.map((opt) => (
             <label
               key={opt.id}
-              className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-sm hover:bg-slate-50"
+              className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-sm hover:bg-surface-3"
             >
               <input
                 type="radio"
@@ -108,7 +108,7 @@ export function LinkPropertiesPopover({
                 checked={entry.linkType === opt.id}
                 onChange={() => handleTypeChange(opt.id)}
               />
-              <span className="text-[#333]">{opt.label}</span>
+              <span className="text-text">{opt.label}</span>
             </label>
           ))}
         </fieldset>
@@ -120,7 +120,7 @@ export function LinkPropertiesPopover({
               <input
                 type="number"
                 min={1}
-                className="w-full rounded border border-slate-300 px-2 py-2 text-sm text-[#333]"
+                className="w-full rounded border border-ring bg-surface-3 px-2 py-2 text-sm text-text"
                 placeholder={activeOption.placeholder}
                 value={entry.value}
                 onChange={(e) => handleValueChange(e.target.value)}
@@ -131,7 +131,7 @@ export function LinkPropertiesPopover({
               <span className="sr-only">{activeOption.label}</span>
               <input
                 type={entry.linkType === 'email' ? 'email' : 'text'}
-                className="w-full rounded border border-slate-300 px-2 py-2 text-sm text-[#333]"
+                className="w-full rounded border border-ring bg-surface-3 px-2 py-2 text-sm text-text"
                 placeholder={activeOption.placeholder}
                 value={entry.value}
                 onChange={(e) => handleValueChange(e.target.value)}
@@ -145,7 +145,7 @@ export function LinkPropertiesPopover({
           <button
             type="button"
             onClick={handleDelete}
-            className="inline-flex items-center gap-1.5 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+            className="inline-flex items-center gap-1.5 rounded border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/20"
           >
             <Trash2 className="h-4 w-4 shrink-0" strokeWidth={1.75} />
             Delete link
@@ -153,7 +153,7 @@ export function LinkPropertiesPopover({
           <button
             type="button"
             onClick={onClose}
-            className="ml-auto rounded border border-slate-300 bg-white px-3 py-2 text-sm text-[#333] hover:bg-slate-50"
+            className="ml-auto rounded border border-ring bg-surface-3 px-3 py-2 text-sm text-text hover:bg-surface-3/80"
           >
             Close
           </button>

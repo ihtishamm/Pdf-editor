@@ -24,7 +24,6 @@ const SIGNATURE_PRESET_COLORS = [
   '#000000',
 ] as const
 
-/** Curated Google Fonts (handwriting / script) for typed signatures. */
 const SIGNATURE_FONT_STYLES: { id: string; family: string }[] = [
   { id: 'dancing', family: 'Dancing Script' },
   { id: 'pacifico', family: 'Pacifico' },
@@ -88,8 +87,8 @@ function ColorPickerRow({
             type="button"
             aria-label={`Color ${c}`}
             aria-pressed={selected}
-            className={`h-9 w-9 shrink-0 rounded-full border-2 border-white shadow-sm ring-offset-2 ring-offset-white transition-shadow ${
-              selected ? 'ring-2 ring-[#40a9ff]' : 'ring-0'
+            className={`h-9 w-9 shrink-0 rounded-full border-2 border-surface-3 shadow-sm ring-offset-2 ring-offset-surface transition-shadow ${
+              selected ? 'ring-2 ring-primary' : 'ring-0'
             }`}
             style={{ backgroundColor: c }}
             onClick={() => onChange(c)}
@@ -212,7 +211,7 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
     <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
       <button
         type="button"
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-black/50"
         aria-label="Close dialog"
         onClick={onClose}
       />
@@ -220,15 +219,15 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
         role="dialog"
         aria-modal
         aria-labelledby={titleId}
-        className="relative z-[131] flex max-h-[min(90vh,720px)] w-full max-w-lg flex-col rounded-lg border border-[#b3d7ff] bg-white shadow-2xl"
+        className="relative z-[131] flex max-h-[min(90vh,720px)] w-full max-w-lg flex-col rounded-lg border border-ring bg-surface shadow-elevated"
       >
-        <div className="flex items-center justify-between border-b border-[#e8e8e8] px-4 py-3">
-          <h2 id={titleId} className="text-base font-semibold text-[#333]">
+        <div className="flex items-center justify-between border-b border-ring px-4 py-3">
+          <h2 id={titleId} className="text-base font-semibold text-text">
             Create signature
           </h2>
           <button
             type="button"
-            className="rounded p-1 text-[#666] hover:bg-slate-100"
+            className="rounded p-1 text-muted hover:bg-surface-alt"
             aria-label="Close"
             onClick={onClose}
           >
@@ -236,7 +235,7 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
           </button>
         </div>
 
-        <div className="flex shrink-0 gap-0 border-b border-[#e8e8e8] px-2 pt-2">
+        <div className="flex shrink-0 gap-0 border-b border-ring px-2 pt-2">
           {(
             [
               ['type', 'Type'],
@@ -252,8 +251,8 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
               aria-selected={tab === id}
               className={`min-h-10 flex-1 rounded-t-md px-2 text-sm font-medium ${
                 tab === id
-                  ? 'border border-b-0 border-[#b3d7ff] bg-white text-[#333]'
-                  : 'border border-transparent text-[#666] hover:bg-slate-50'
+                  ? 'border border-b-0 border-ring bg-surface text-text'
+                  : 'border border-transparent text-muted hover:bg-surface-alt'
               }`}
               onClick={() => setTab(id)}
             >
@@ -266,10 +265,10 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
           {tab === 'type' ? (
             <div className="space-y-4">
               <label className="block">
-                <span className="text-xs font-medium text-[#666]">Your name</span>
+                <span className="text-xs font-medium text-muted">Your name</span>
                 <input
                   type="text"
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm text-[#333]"
+                  className="mt-1 w-full rounded border border-ring bg-surface-alt px-3 py-2 text-sm text-text"
                   placeholder="Type your name"
                   value={typeName}
                   onChange={(e) => setTypeName(e.target.value)}
@@ -277,7 +276,7 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
                 />
               </label>
               <div>
-                <p id={typeColorLabel} className="text-xs font-medium text-[#666]">
+                <p id={typeColorLabel} className="text-xs font-medium text-muted">
                   Color
                 </p>
                 <div className="mt-2">
@@ -289,7 +288,7 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
                 </div>
               </div>
               <div>
-                <p className="text-xs font-medium text-[#666]">Style</p>
+                <p className="text-xs font-medium text-muted">Style</p>
                 <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {SIGNATURE_FONT_STYLES.map((f) => (
                     <button
@@ -298,8 +297,8 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
                       onClick={() => setSelectedFontId(f.id)}
                       className={`flex min-h-[52px] items-center justify-center rounded border px-2 py-2 text-center text-lg leading-tight transition-colors ${
                         selectedFontId === f.id
-                          ? 'border-[#40a9ff] bg-[#f0f8ff]'
-                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                          ? 'border-primary/50 bg-primary/10 text-primary'
+                          : 'border-ring bg-surface-alt text-text hover:bg-surface-3'
                       }`}
                       style={{ fontFamily: `"${f.family}", cursive` }}
                     >
@@ -312,7 +311,7 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
                 type="button"
                 disabled={!typeName.trim() || !fontsReady}
                 onClick={() => void handleTypeSave()}
-                className="w-full rounded bg-[#00a67e] py-2.5 text-sm font-medium text-white hover:bg-[#00916d] disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded bg-primary py-2.5 text-sm font-medium text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Save
               </button>
@@ -322,7 +321,7 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
           {tab === 'draw' ? (
             <div className="space-y-4">
               <div>
-                <p id={drawColorLabel} className="text-xs font-medium text-[#666]">
+                <p id={drawColorLabel} className="text-xs font-medium text-muted">
                   Color
                 </p>
                 <div className="mt-2">
@@ -333,7 +332,7 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
                   />
                 </div>
               </div>
-              <div className="overflow-hidden rounded border border-slate-200 bg-white">
+              <div className="overflow-hidden rounded border border-ring bg-white">
                 <SignatureDrawPad
                   ref={drawPadRef}
                   color={drawColor}
@@ -344,7 +343,7 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
                 <button
                   type="button"
                   onClick={() => drawPadRef.current?.clear()}
-                  className="rounded border border-slate-300 bg-white px-4 py-2 text-sm text-[#333] hover:bg-slate-50"
+                  className="rounded border border-ring bg-surface-alt px-4 py-2 text-sm text-text hover:bg-surface-3"
                 >
                   Clear
                 </button>
@@ -352,7 +351,7 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
                   type="button"
                   disabled={!drawHasInk}
                   onClick={handleDrawSave}
-                  className="ml-auto min-w-[120px] rounded bg-[#00a67e] px-4 py-2 text-sm font-medium text-white hover:bg-[#00916d] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="ml-auto min-w-[120px] rounded bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Save
                 </button>
@@ -376,12 +375,12 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
               <button
                 type="button"
                 onClick={() => uploadInputRef.current?.click()}
-                className="w-full rounded border border-dashed border-slate-300 py-8 text-sm text-[#666] hover:border-[#40a9ff] hover:bg-[#f8fbff]"
+                className="w-full rounded border border-dashed border-ring py-8 text-sm text-muted hover:border-primary hover:bg-primary/5"
               >
                 Choose PNG, JPG, or SVG
               </button>
               {uploadPreviewUrl ? (
-                <div className="flex justify-center rounded border border-slate-200 bg-slate-50 p-4">
+                <div className="flex justify-center rounded border border-ring bg-surface-alt p-4">
                   <img
                     src={uploadPreviewUrl}
                     alt="Upload preview"
@@ -393,7 +392,7 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
                 type="button"
                 disabled={!uploadFile}
                 onClick={handleUploadSave}
-                className="w-full rounded bg-[#00a67e] py-2.5 text-sm font-medium text-white hover:bg-[#00916d] disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded bg-primary py-2.5 text-sm font-medium text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Save
               </button>
@@ -403,13 +402,13 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
           {tab === 'saved' ? (
             <div className="space-y-3">
               {savedSignatures.length === 0 ? (
-                <p className="text-sm text-[#888]">No saved signatures yet.</p>
+                <p className="text-sm text-placeholder">No saved signatures yet.</p>
               ) : (
                 <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {savedSignatures.map((s) => (
                     <li
                       key={s.id}
-                      className="group relative rounded border border-slate-200 bg-slate-50 p-2"
+                      className="group relative rounded border border-ring bg-surface-alt p-2"
                     >
                       <button
                         type="button"
@@ -421,12 +420,12 @@ export function CreateSignatureModal({ open, onClose }: CreateSignatureModalProp
                           alt=""
                           className="max-h-20 max-w-full object-contain"
                         />
-                        <span className="text-xs text-[#40a9ff]">Insert</span>
+                        <span className="text-xs text-primary">Insert</span>
                       </button>
                       <button
                         type="button"
                         aria-label="Remove from saved"
-                        className="absolute right-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-xs text-red-600 opacity-0 shadow group-hover:opacity-100"
+                        className="absolute right-1 top-1 rounded bg-surface/90 px-1.5 py-0.5 text-xs text-destructive opacity-0 shadow group-hover:opacity-100"
                         onClick={() => removeSavedSignature(s.id)}
                       >
                         ×

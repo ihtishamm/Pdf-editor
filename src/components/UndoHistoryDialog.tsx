@@ -29,7 +29,7 @@ function formatTime(d: Date): string {
 }
 
 function TypeIcon({ t }: { t: HistoryFabricType }) {
-  const cls = 'h-4 w-4 shrink-0 text-[#666]'
+  const cls = 'h-4 w-4 shrink-0 text-muted'
   switch (t) {
     case 'text':
       return <Type className={cls} strokeWidth={1.75} aria-hidden />
@@ -86,26 +86,26 @@ export function UndoHistoryDialog({ open, onClose }: UndoHistoryDialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/35 p-4"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4"
       role="presentation"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
       <div
-        className="flex max-h-[min(520px,85vh)] w-full max-w-md flex-col overflow-hidden rounded-lg border border-[#e0e0e0] bg-white shadow-xl"
+        className="flex max-h-[min(520px,85vh)] w-full max-w-md flex-col overflow-hidden rounded-lg border border-ring bg-surface shadow-elevated"
         role="dialog"
         aria-modal="true"
         aria-labelledby="undo-history-title"
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-[#eee] px-4 py-3">
-          <h2 id="undo-history-title" className="text-base font-semibold text-[#222]">
+        <div className="flex shrink-0 items-center justify-between border-b border-ring px-4 py-3">
+          <h2 id="undo-history-title" className="text-base font-semibold text-text">
             Undo changes
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-[#666] hover:bg-[#f0f0f0]"
+            className="rounded p-1 text-muted hover:bg-surface-alt"
             aria-label="Close"
           >
             <X className="h-5 w-5" strokeWidth={1.75} />
@@ -114,22 +114,22 @@ export function UndoHistoryDialog({ open, onClose }: UndoHistoryDialogProps) {
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {list.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-[#888]">No changes yet.</p>
+            <p className="px-4 py-8 text-center text-sm text-placeholder">No changes yet.</p>
           ) : (
-            <ul className="divide-y divide-[#f0f0f0]">
+            <ul className="divide-y divide-ring">
               {list.map((e) => (
-                <li key={e.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#fafafa]">
+                <li key={e.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-surface-alt">
                   <input
                     type="checkbox"
                     checked={selected.has(e.id)}
                     onChange={() => toggle(e.id)}
-                    className="h-4 w-4 shrink-0 rounded border-[#ccc] accent-[#00a67e]"
+                    className="h-4 w-4 shrink-0 rounded border-ring accent-primary"
                     aria-label={`Select ${e.label}`}
                   />
                   <TypeIcon t={e.type} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-[#333]">{e.label}</div>
-                    <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-[#888]">
+                    <div className="truncate text-sm font-medium text-text">{e.label}</div>
+                    <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-placeholder">
                       <span>{formatTime(e.timestamp)}</span>
                       <span>Page {e.pageNumber}</span>
                     </div>
@@ -140,12 +140,12 @@ export function UndoHistoryDialog({ open, onClose }: UndoHistoryDialogProps) {
           )}
         </div>
 
-        <div className="shrink-0 border-t border-[#eee] px-4 py-3">
+        <div className="shrink-0 border-t border-ring px-4 py-3">
           <button
             type="button"
             disabled={selectedCount === 0 || busy}
             onClick={() => void onRevert()}
-            className="w-full rounded-md bg-[#00a67e] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#00916d] disabled:cursor-not-allowed disabled:bg-[#b8dcd0] disabled:text-white/90"
+            className="w-full rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? 'Reverting…' : 'Revert selected'}
           </button>

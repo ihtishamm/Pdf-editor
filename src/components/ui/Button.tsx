@@ -18,7 +18,7 @@ const variantStyles: Record<ButtonVariant, string> = {
   accent:
     'bg-accent text-white hover:bg-accent-hover shadow-ring',
   destructive:
-    'bg-destructive-light text-destructive border border-destructive-border hover:bg-red-50',
+    'bg-destructive-light text-destructive border border-destructive-border hover:bg-destructive/20',
 }
 
 const sizeStyles: Record<ButtonSize, string> = {
