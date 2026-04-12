@@ -1,513 +1,848 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  ArrowRight,
-  Check,
-  Download,
-  FileText,
-  Highlighter,
-  Image,
-  Lock,
-  MousePointer2,
-  Play,
-  Type,
-  Zap,
-} from 'lucide-react'
-import { Button } from '../components/ui/Button'
 
-/* ------------------------------------------------------------------ */
-/*  Navbar                                                             */
-/* ------------------------------------------------------------------ */
+/* ===================================================================
+   Reveal wrapper — IntersectionObserver driven
+   =================================================================== */
 
-function Navbar() {
+function Reveal({
+  children,
+  className = '',
+  delay = 0,
+}: {
+  children: React.ReactNode
+  className?: string
+  delay?: number
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true)
+          obs.unobserve(el)
+        }
+      },
+      { threshold: 0.12 },
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
   return (
-    <header className="sticky top-0 z-50 border-b border-ring bg-surface/80 backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-        <Link to="/" className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-btn bg-primary font-display text-sm font-bold text-white">
-            P
-          </span>
-          <span className="font-display text-lg font-semibold tracking-tight text-near-black">
-            PDF Studio
-          </span>
-        </Link>
-
-        <nav className="hidden items-center gap-8 md:flex">
-          <a href="#features" className="text-sm font-medium text-muted transition-colors hover:text-near-black">
-            Features
-          </a>
-          <a href="#pricing" className="text-sm font-medium text-muted transition-colors hover:text-near-black">
-            Pricing
-          </a>
-          <a href="#why-us" className="text-sm font-medium text-muted transition-colors hover:text-near-black">
-            Why Us
-          </a>
-        </nav>
-
-        <div className="flex items-center gap-3">
-          <a href="#" className="hidden text-sm font-medium text-muted transition-colors hover:text-near-black sm:block">
-            Log in
-          </a>
-          <Link to="/editor">
-            <Button variant="primary" size="sm">
-              Start Free
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
-      </div>
-    </header>
+    <div
+      ref={ref}
+      className={`reveal-section ${visible ? 'visible' : ''} ${className}`}
+      style={delay ? { transitionDelay: `${delay}s` } : undefined}
+    >
+      {children}
+    </div>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Hero                                                               */
-/* ------------------------------------------------------------------ */
+/* ===================================================================
+   Custom Cursor (desktop only)
+   =================================================================== */
 
-function EditorMockup() {
+function CustomCursor() {
+  const dotRef = useRef<HTMLDivElement>(null)
+  const ringRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const dot = dotRef.current
+    const ring = ringRef.current
+    if (!dot || !ring) return
+    const onMove = (e: MouseEvent) => {
+      dot.style.left = `${e.clientX}px`
+      dot.style.top = `${e.clientY}px`
+      ring.style.left = `${e.clientX}px`
+      ring.style.top = `${e.clientY}px`
+    }
+    window.addEventListener('mousemove', onMove)
+    return () => window.removeEventListener('mousemove', onMove)
+  }, [])
+
   return (
-    <div className="relative rounded-panel border border-ring bg-surface shadow-elevated overflow-hidden">
-      {/* Window chrome */}
-      <div className="flex items-center gap-2 border-b border-ring px-4 py-2.5 bg-surface-alt">
-        <div className="flex gap-1.5">
-          <div className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
-          <div className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
-          <div className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+    <>
+      <div ref={dotRef} className="lp-cursor hidden md:block" />
+      <div ref={ringRef} className="lp-cursor-ring hidden md:block" />
+    </>
+  )
+}
+
+/* ===================================================================
+   Navbar
+   =================================================================== */
+
+const NAV_LINKS = [
+  { label: 'Features', href: '#features' },
+  { label: 'How it works', href: '#how' },
+  { label: 'Reviews', href: '#testimonials' },
+  { label: 'Pricing', href: '#pricing' },
+]
+
+function Navbar() {
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  return (
+    <nav
+      className={`fixed inset-x-0 top-0 z-50 flex items-center justify-between px-6 py-5 transition-all duration-300 md:px-12 ${
+        scrolled ? 'border-b border-border bg-near-black/85 backdrop-blur-xl' : ''
+      }`}
+    >
+      <Link to="/" className="flex items-center gap-2.5">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-display text-sm font-extrabold text-white">
+          P
         </div>
-        <div className="flex-1 text-center">
-          <span className="rounded-btn bg-surface px-3 py-0.5 text-[11px] font-medium text-muted shadow-ring">
-            Invoice.pdf — PDF Studio
-          </span>
+        <span className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-text">
+          PDFPro
+        </span>
+      </Link>
+
+      <ul className="hidden items-center gap-9 md:flex">
+        {NAV_LINKS.map(({ label, href }) => (
+          <li key={label}>
+            <a
+              href={href}
+              className="text-sm text-muted transition-colors hover:text-text"
+            >
+              {label}
+            </a>
+          </li>
+        ))}
+      </ul>
+
+      <div className="flex items-center gap-4">
+        <button className="hidden text-sm font-medium text-muted transition-colors hover:text-text sm:block">
+          Sign in
+        </button>
+        <Link
+          to="/editor"
+          className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white transition-all hover:-translate-y-px hover:bg-primary-hover"
+        >
+          Start for free →
+        </Link>
+      </div>
+    </nav>
+  )
+}
+
+/* ===================================================================
+   Hero — Mockup Browser
+   =================================================================== */
+
+const TOOLS = [
+  { icon: '✏️', label: 'Edit Text', active: true },
+  { icon: '🖊️', label: 'Annotate', active: false },
+  { icon: '🖋️', label: 'Signature', active: false },
+  { icon: '📐', label: 'Draw', active: false },
+  { icon: '🗜️', label: 'Compress', active: false },
+  { icon: '🔗', label: 'Merge PDF', active: false },
+  { icon: '✂️', label: 'Split PDF', active: false },
+  { icon: '🔄', label: 'Convert', active: false },
+  { icon: '🔒', label: 'Protect', active: false },
+]
+
+function MockupBrowser() {
+  return (
+    <div className="mockup-perspective overflow-hidden rounded-2xl border border-ring bg-surface shadow-[0_40px_120px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.05)]">
+      {/* Browser chrome */}
+      <div className="flex items-center gap-3 border-b border-border bg-surface-alt px-5 py-3.5">
+        <div className="flex gap-[7px]">
+          <div className="h-3 w-3 rounded-full bg-[#ff5f57]" />
+          <div className="h-3 w-3 rounded-full bg-[#febc2e]" />
+          <div className="h-3 w-3 rounded-full bg-[#28c840]" />
+        </div>
+        <div className="mx-auto max-w-[360px] flex-1 rounded-md bg-surface-3 px-3.5 py-1.5 text-center text-xs text-muted">
+          app.pdfpro.io/editor
         </div>
       </div>
-      {/* Fake toolbar */}
-      <div className="flex items-center gap-1 border-b border-ring px-3 py-1.5">
-        <span className="rounded bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-primary">Select</span>
-        <span className="rounded px-2.5 py-1 text-[10px] font-medium text-muted">Text</span>
-        <span className="rounded px-2.5 py-1 text-[10px] font-medium text-muted">Draw</span>
-        <span className="rounded px-2.5 py-1 text-[10px] font-medium text-muted">Shapes</span>
-        <span className="rounded px-2.5 py-1 text-[10px] font-medium text-muted">Sign</span>
-      </div>
-      {/* Fake PDF content */}
-      <div className="relative space-y-2.5 p-5">
-        <div className="h-2.5 w-3/5 rounded-full bg-near-black/8" />
-        <div className="h-2.5 w-4/5 rounded-full bg-near-black/8" />
-        <div className="h-2.5 w-full rounded-full bg-near-black/8" />
-        <div className="mt-3 h-2.5 w-3/4 rounded bg-orange-pastel/80" />
-        <div className="h-2.5 w-full rounded-full bg-near-black/8" />
-        <div className="h-2.5 w-2/3 rounded-full bg-near-black/8" />
-        <div className="mt-3 flex h-14 w-28 items-center justify-center rounded-card border-2 border-dashed border-primary/30 bg-primary/5">
-          <Image className="h-4 w-4 text-primary/60" />
+
+      <div className="grid h-[460px] grid-cols-1 sm:grid-cols-[220px_1fr]">
+        {/* Sidebar */}
+        <div className="hidden overflow-hidden border-r border-border bg-surface-alt p-4 sm:block">
+          <div className="mb-3.5 text-[11px] font-medium uppercase tracking-[1.2px] text-placeholder">
+            Tools
+          </div>
+          {TOOLS.map((t) => (
+            <div
+              key={t.label}
+              className={`mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] transition-colors ${
+                t.active
+                  ? 'bg-primary/12 text-accent'
+                  : 'text-muted'
+              }`}
+            >
+              <span className="w-5 text-center text-sm">{t.icon}</span>
+              {t.label}
+            </div>
+          ))}
         </div>
-        <div className="h-2.5 w-4/5 rounded-full bg-near-black/8" />
-        <div className="h-2.5 w-3/5 rounded-full bg-near-black/8" />
-        {/* Blinking cursor */}
-        <div className="absolute left-[42%] top-[28%] h-4 w-px animate-pulse bg-primary" />
-        {/* Selection box */}
-        <div className="absolute right-8 top-[55%] h-[60px] w-[110px] rounded border-2 border-primary/40 bg-primary/5" />
+
+        {/* PDF area */}
+        <div className="relative flex items-center justify-center overflow-hidden bg-[#1c1c22] p-6">
+          <div className="relative w-[280px] animate-float rounded bg-white p-7 shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
+            <div className="mb-[18px] h-3 w-[65%] rounded bg-[#ccc]" />
+            <div className="mb-2.5 h-2 w-[70%] rounded-full bg-[#e5e5e5]" />
+            <div className="mb-2.5 h-2 w-[90%] rounded-full bg-[#e5e5e5]" />
+            <div className="mb-2.5 h-2 w-[88%] rounded bg-[rgba(255,204,68,0.4)]" />
+            <div className="mb-2.5 h-2 w-[85%] rounded-full bg-[#e5e5e5]" />
+            <div className="mb-2.5 h-2 w-[70%] rounded-full bg-[#e5e5e5]" />
+            <div className="h-2 w-[50%] rounded-full bg-[#e5e5e5]" />
+            <div className="annotation-arrow absolute -right-4 top-10 whitespace-nowrap rounded-md bg-primary px-2.5 py-1.5 font-body text-[11px] font-medium text-white">
+              ✏️ Editing…
+            </div>
+          </div>
+
+          {/* Floating badges */}
+          <div className="absolute bottom-10 left-6 hidden animate-float-delayed items-center gap-2 rounded-xl border border-ring bg-surface px-3.5 py-2.5 text-text shadow-[0_8px_24px_rgba(0,0,0,0.4)] sm:flex">
+            <span className="text-base">⚡</span>
+            <div>
+              <div className="text-[13px] font-medium">Lightning fast</div>
+              <div className="text-[11px] text-muted">Processed in 0.3s</div>
+            </div>
+          </div>
+          <div className="absolute right-6 top-10 hidden animate-float-delayed-2 items-center gap-2 rounded-xl border border-ring bg-surface px-3.5 py-2.5 text-text shadow-[0_8px_24px_rgba(0,0,0,0.4)] sm:flex">
+            <span className="text-base">🔒</span>
+            <div>
+              <div className="text-[13px] font-medium">End-to-end secure</div>
+              <div className="text-[11px] text-muted">Files deleted after 1h</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
 }
 
+/* ===================================================================
+   Hero Section
+   =================================================================== */
+
 function HeroSection() {
   return (
-    <section className="overflow-hidden bg-surface">
-      <div className="mx-auto flex max-w-6xl flex-col items-center gap-12 px-6 py-16 lg:flex-row lg:gap-16 lg:py-24">
-        {/* Left: Text */}
-        <div className="flex-1 animate-fade-in-up text-center lg:text-left">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-pill border border-ring bg-surface-alt px-4 py-1.5 shadow-ring">
-            <FileText className="h-3.5 w-3.5 text-primary" />
-            <span className="text-xs font-semibold text-muted">Free PDF Editor</span>
-          </div>
-          <h1 className="font-display text-[clamp(2.25rem,5vw,3.5rem)] font-semibold leading-[1.15] tracking-[-0.03em] text-near-black">
-            Edit PDFs as easily as text
-          </h1>
-          <p className="mt-5 max-w-lg text-lg leading-relaxed text-muted lg:text-xl">
-            No uploads. No hassle. Edit, annotate, and customize your PDFs directly in your browser.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
-            <Link to="/editor">
-              <Button variant="primary" size="lg">
-                Start Editing Free
-                <ArrowRight className="h-4.5 w-4.5" />
-              </Button>
-            </Link>
-            <Link to="/editor">
-              <Button variant="secondary" size="lg">
-                <Play className="h-4 w-4" />
-                Try Live Demo
-              </Button>
-            </Link>
-          </div>
+    <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pb-20 pt-[120px] text-center">
+      <div className="absolute inset-0 z-0">
+        <div className="hero-grid-bg absolute inset-0" />
+        <div className="hero-glow absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
+      </div>
+
+      <div className="relative z-10 max-w-[900px]">
+        <div className="mb-8 inline-flex animate-fade-in-up items-center gap-2 rounded-full border border-ring bg-white/5 px-4 py-1.5 text-[13px] text-muted">
+          <span className="h-1.5 w-1.5 animate-blink rounded-full bg-green" />
+          Free forever — no credit card required
         </div>
-        {/* Right: Editor Mockup */}
-        <div className="w-full max-w-md flex-1 animate-fade-in-up-delay lg:max-w-lg">
-          <EditorMockup />
+
+        <h1 className="animate-fade-up-d1 font-display text-[clamp(52px,8vw,96px)] font-extrabold leading-[0.95] tracking-[-3px] text-text">
+          Edit PDFs
+          <br />
+          <span>
+            like a <span className="accent-gradient">pro.</span>
+          </span>
+        </h1>
+
+        <p className="mx-auto mt-7 max-w-[560px] animate-fade-up-d2 text-lg font-light leading-[1.7] text-muted">
+          The most powerful free PDF editor on the web. Edit, annotate, merge,
+          compress, sign, and convert — all in your browser.
+        </p>
+
+        <div className="mt-12 flex animate-fade-up-d3 flex-wrap items-center justify-center gap-4">
+          <Link to="/editor">
+            <button className="relative overflow-hidden rounded-[10px] bg-primary px-9 py-4 text-base font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_60px_rgba(255,77,46,0.35)]">
+              <span className="absolute inset-0 bg-linear-to-br from-white/15 to-transparent" />
+              <span className="relative">Open PDF Editor →</span>
+            </button>
+          </Link>
+          <button className="rounded-[10px] border border-ring px-9 py-4 text-base text-muted transition-all hover:border-white/20 hover:text-text">
+            Watch demo
+          </button>
         </div>
+
+        <p className="mt-6 animate-fade-up-d4 text-[13px] text-placeholder">
+          ✓ No signup needed &nbsp;&nbsp; ✓ Works in browser &nbsp;&nbsp; ✓ 100%
+          free
+        </p>
+      </div>
+
+      <div className="relative z-10 mt-20 hidden w-full max-w-[1000px] animate-fade-up-d5 sm:block">
+        <MockupBrowser />
       </div>
     </section>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Social Proof                                                       */
-/* ------------------------------------------------------------------ */
+/* ===================================================================
+   Logos Strip — infinite scroll
+   =================================================================== */
 
-function SocialProofSection() {
+const LOGOS = [
+  'Notion',
+  'Figma',
+  'Stripe',
+  'Linear',
+  'Vercel',
+  'Loom',
+  'Intercom',
+  'Framer',
+]
+
+function LogosStrip() {
+  const items = LOGOS.flatMap((name) => [name, '—'])
+  const doubled = [...items, ...items]
+
   return (
-    <section className="border-y border-ring bg-surface-alt">
-      <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 px-6 py-10">
-        <p className="text-center text-sm font-medium text-muted">
-          Trusted by <span className="font-semibold text-near-black">10,000+</span> users worldwide
-        </p>
-        <div className="flex items-center -space-x-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div
+    <div className="overflow-hidden border-y border-border py-[60px] text-center">
+      <div className="mb-8 text-xs font-medium uppercase tracking-[1.5px] text-placeholder">
+        Trusted by teams at
+      </div>
+      <div className="overflow-hidden">
+        <div className="flex animate-scroll-logos items-center gap-[60px] w-max">
+          {doubled.map((item, i) => (
+            <span
               key={i}
-              className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-gradient-to-br text-[10px] font-bold text-white shadow-ring"
-              style={{
-                backgroundImage: [
-                  'linear-gradient(135deg, #5b76fe, #7b92ff)',
-                  'linear-gradient(135deg, #00b473, #4fd1a5)',
-                  'linear-gradient(135deg, #ff6b6b, #ffa07a)',
-                  'linear-gradient(135deg, #ffa940, #ffd666)',
-                  'linear-gradient(135deg, #b37feb, #d3adf7)',
-                ][i],
-              }}
+              className={`font-display text-xl font-bold whitespace-nowrap tracking-[-0.5px] ${
+                item === '—' ? 'text-text/10' : 'text-placeholder'
+              }`}
             >
-              {['S', 'A', 'M', 'K', 'J'][i]}
-            </div>
+              {item}
+            </span>
           ))}
-          <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-surface-alt text-[10px] font-semibold text-muted shadow-ring">
-            +9k
-          </div>
         </div>
-        <p className="text-center text-xs text-placeholder">
-          Used by students, freelancers, and professionals every day
-        </p>
       </div>
-    </section>
+    </div>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Product Demo                                                       */
-/* ------------------------------------------------------------------ */
+/* ===================================================================
+   Marquee Feature Strip
+   =================================================================== */
 
-function DemoSection() {
+const MARQUEE_ITEMS = [
+  'Edit Text',
+  'Add Images',
+  'E-Sign Documents',
+  'Merge PDFs',
+  'Split Pages',
+  'Compress Files',
+  'Annotate & Comment',
+  'Convert to Word',
+  'Password Protect',
+  'Rotate & Crop',
+  'Fill Forms',
+  'Redact Text',
+]
+
+function MarqueeStrip() {
+  const doubled = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS]
+
   return (
-    <section className="bg-surface py-20 lg:py-28">
-      <div className="mx-auto max-w-4xl px-6 text-center">
-        <h2 className="font-display text-3xl font-semibold tracking-tight text-near-black sm:text-4xl">
-          See how it works in seconds
-        </h2>
-        <p className="mx-auto mt-4 max-w-xl text-base text-muted lg:text-lg">
-          No learning curve. Just click, edit, and export.
-        </p>
-        <div className="relative mt-12 overflow-hidden rounded-panel border border-ring bg-near-black/5 shadow-card">
-          <div className="flex aspect-video items-center justify-center">
-            <Link
-              to="/editor"
-              className="group flex flex-col items-center gap-3 transition-transform hover:scale-105"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary shadow-elevated transition-shadow group-hover:shadow-modal">
-                <Play className="h-7 w-7 text-white" fill="white" />
-              </div>
-              <span className="text-sm font-medium text-muted group-hover:text-near-black">
-                Try it yourself
-              </span>
-            </Link>
+    <div className="overflow-hidden border-y border-border py-10">
+      <div className="flex animate-marquee w-max">
+        {doubled.map((item, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-3 px-9 font-display text-sm font-semibold tracking-wide text-muted whitespace-nowrap"
+          >
+            <span className="h-1 w-1 rounded-full bg-primary" />
+            {item}
           </div>
-        </div>
+        ))}
       </div>
-    </section>
+    </div>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Features                                                           */
-/* ------------------------------------------------------------------ */
+/* ===================================================================
+   Features — bento grid
+   =================================================================== */
 
 const FEATURES = [
   {
-    icon: Type,
-    title: 'Edit text directly in your PDF',
-    description:
-      'Change content, fix typos, or rewrite entire sections — just like editing a document.',
-    bg: 'bg-coral/30',
-    iconColor: 'text-coral-dark',
+    icon: '✏️',
+    title: 'Edit text directly in PDFs',
+    desc: 'Click on any text in your PDF and start editing. Change fonts, sizes, colors. Add new text boxes anywhere on the page.',
+    wide: true,
+    bar: true,
   },
   {
-    icon: Image,
-    title: 'Insert images, shapes, and signatures',
-    description:
-      'Customize your PDFs with visuals, logos, or annotations effortlessly.',
-    bg: 'bg-teal-pastel/40',
-    iconColor: 'text-teal-dark',
+    icon: '🔗',
+    title: 'Merge & split',
+    desc: 'Combine multiple PDFs into one, or split a large file into separate documents instantly.',
   },
   {
-    icon: Highlighter,
-    title: 'Highlight, draw, and annotate',
-    description:
-      'Mark important sections, add notes, and collaborate visually.',
-    bg: 'bg-rose-pastel/30',
-    iconColor: 'text-[#9b1d6a]',
+    icon: '🖋️',
+    title: 'E-signatures',
+    desc: 'Draw, type, or upload your signature. Sign legally binding documents in seconds.',
   },
   {
-    icon: Download,
-    title: 'Download your PDF instantly',
-    description:
-      'No waiting. No processing delays. Export your edited PDF in seconds.',
-    bg: 'bg-orange-pastel/40',
-    iconColor: 'text-[#b35c00]',
+    icon: '🗜️',
+    title: 'Smart compression',
+    desc: 'Reduce file size by up to 90% without visible quality loss. Share and upload files with ease.',
   },
-] as const
+  {
+    icon: '🔒',
+    title: 'Security-first by design',
+    desc: 'All files are processed in-browser or deleted from our servers within 1 hour. Your documents never leave your control. We use end-to-end encryption on all uploads.',
+    wide: true,
+  },
+  {
+    icon: '🔄',
+    title: 'Convert anything',
+    desc: 'PDF to Word, Excel, PowerPoint, JPEG, PNG — or convert files to PDF. Fast and accurate.',
+  },
+  {
+    icon: '🖊️',
+    title: 'Annotate & comment',
+    desc: 'Highlight, underline, strike through text. Add sticky notes and freehand drawings.',
+  },
+]
 
 function FeaturesSection() {
   return (
-    <section id="features" className="bg-surface-alt py-20 lg:py-28">
-      <div className="mx-auto max-w-6xl px-6">
-        <div className="text-center">
-          <h2 className="font-display text-3xl font-semibold tracking-tight text-near-black sm:text-4xl">
-            Everything you need to edit PDFs
+    <section id="features">
+      <div className="mx-auto max-w-[1280px] px-6 py-[120px] md:px-12">
+        <Reveal>
+          <div className="mb-4 text-xs font-medium uppercase tracking-[2px] text-primary">
+            Everything you need
+          </div>
+          <h2 className="font-display text-[clamp(36px,5vw,64px)] font-extrabold leading-[1.05] tracking-[-2px] text-text">
+            Not just another
+            <br />
+            PDF viewer.
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-base text-muted">
-            A complete suite of editing tools right in your browser.
+          <p className="mt-6 max-w-[520px] text-lg font-light leading-[1.7] text-muted">
+            We built a complete document workspace. Every tool you'll ever need,
+            in one place, for free.
           </p>
-        </div>
-        <div className="mt-14 grid gap-6 sm:grid-cols-2">
-          {FEATURES.map((feat) => (
-            <div
-              key={feat.title}
-              className="group rounded-card border border-ring bg-surface p-6 shadow-card transition-shadow hover:shadow-elevated lg:p-8"
-            >
-              <div className={`inline-flex h-11 w-11 items-center justify-center rounded-card ${feat.bg}`}>
-                <feat.icon className={`h-5 w-5 ${feat.iconColor}`} strokeWidth={2} />
+        </Reveal>
+
+        <Reveal>
+          <div className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map((feat) => (
+              <div
+                key={feat.title}
+                className={`feature-card-glow relative overflow-hidden rounded-2xl border border-border bg-surface p-8 transition-all duration-300 hover:-translate-y-1 hover:border-ring ${
+                  feat.wide ? 'sm:col-span-2' : ''
+                }`}
+              >
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-xl">
+                  {feat.icon}
+                </div>
+                <h3 className="font-display text-xl font-bold tracking-[-0.5px] text-text">
+                  {feat.title}
+                </h3>
+                <p className="mt-2.5 text-[15px] font-light leading-[1.65] text-muted">
+                  {feat.desc}
+                </p>
+                {feat.bar && <div className="feature-bar-animated mt-5" />}
               </div>
-              <h3 className="mt-4 font-display text-lg font-semibold text-near-black">
-                {feat.title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted">
-                {feat.description}
-              </p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </Reveal>
+
+        <Reveal>
+          <StatsRow />
+        </Reveal>
       </div>
     </section>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Why Us                                                             */
-/* ------------------------------------------------------------------ */
+/* ===================================================================
+   Stats Row — animated counters
+   =================================================================== */
 
-const USPS = [
-  {
-    icon: Lock,
-    title: '100% Private',
-    description:
-      'Your files never leave your device. Everything happens locally in your browser.',
-  },
-  {
-    icon: Zap,
-    title: 'Lightning Fast',
-    description:
-      'No uploads, no servers — just instant editing with zero wait time.',
-  },
-  {
-    icon: MousePointer2,
-    title: 'Simple Yet Powerful',
-    description:
-      'Clean UI with powerful editing capabilities. No learning curve required.',
-  },
-] as const
+function AnimatedStat({
+  target,
+  suffix,
+  isFloat,
+  label,
+}: {
+  target: number
+  suffix: string
+  isFloat?: boolean
+  label: string
+}) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const started = useRef(false)
 
-function WhyUsSection() {
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !started.current) {
+          started.current = true
+          obs.unobserve(el)
+          const duration = 1800
+          const start = performance.now()
+          const tick = (now: number) => {
+            const progress = Math.min((now - start) / duration, 1)
+            const eased = 1 - Math.pow(1 - progress, 3)
+            const current = eased * target
+            el.textContent =
+              (isFloat ? current.toFixed(1) : Math.floor(current).toString()) +
+              suffix
+            if (progress < 1) requestAnimationFrame(tick)
+            else
+              el.textContent =
+                (isFloat ? target.toFixed(1) : target.toString()) + suffix
+          }
+          requestAnimationFrame(tick)
+        }
+      },
+      { threshold: 0.5 },
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [target, suffix, isFloat])
+
   return (
-    <section id="why-us" className="bg-surface py-20 lg:py-28">
-      <div className="mx-auto max-w-6xl px-6">
-        <div className="text-center">
-          <h2 className="font-display text-3xl font-semibold tracking-tight text-near-black sm:text-4xl">
-            Built for speed. Designed for privacy.
+    <div className="bg-surface px-6 py-8 text-center transition-colors hover:bg-surface-alt md:px-8 md:py-10">
+      <span
+        ref={ref}
+        className="gradient-text mb-2 block font-display text-[clamp(36px,4vw,56px)] font-extrabold tracking-[-2px]"
+      >
+        {isFloat ? '0.0' : '0'}
+        {suffix}
+      </span>
+      <span className="text-sm text-muted">{label}</span>
+    </div>
+  )
+}
+
+function StatsRow() {
+  return (
+    <div className="mt-20 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border md:grid-cols-4">
+      <AnimatedStat target={2} suffix="M+" label="PDFs processed" />
+      <AnimatedStat target={180} suffix="+" label="Countries worldwide" />
+      <AnimatedStat
+        target={0.3}
+        suffix="s"
+        isFloat
+        label="Average load time"
+      />
+      <AnimatedStat target={100} suffix="%" label="Forever free" />
+    </div>
+  )
+}
+
+/* ===================================================================
+   How It Works
+   =================================================================== */
+
+const STEPS = [
+  {
+    num: '01',
+    title: 'Upload your PDF',
+    desc: 'Drag and drop your file, click to browse, or paste a URL. We support PDFs up to 500MB.',
+  },
+  {
+    num: '02',
+    title: 'Edit with powerful tools',
+    desc: 'Use our full suite of tools — edit text, add annotations, merge, compress, sign, and more. Everything works right in your browser.',
+  },
+  {
+    num: '03',
+    title: 'Download or share',
+    desc: 'Download your finished PDF instantly or share it with a secure, expiring link. Zero watermarks. Always.',
+  },
+]
+
+function HowItWorks() {
+  const [activeStep, setActiveStep] = useState(0)
+
+  return (
+    <section
+      id="how"
+      className="border-t border-border bg-surface"
+    >
+      <div className="mx-auto max-w-[1280px] px-6 py-[120px] md:px-12">
+        <Reveal>
+          <div className="mb-4 text-xs font-medium uppercase tracking-[2px] text-primary">
+            How it works
+          </div>
+          <h2 className="font-display text-[clamp(36px,5vw,64px)] font-extrabold leading-[1.05] tracking-[-2px] text-text">
+            Three steps.
+            <br />
+            That's it.
           </h2>
-        </div>
-        <div className="mt-14 grid gap-6 sm:grid-cols-3">
-          {USPS.map((usp) => (
-            <div key={usp.title} className="text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-card bg-primary/8">
-                <usp.icon className="h-5 w-5 text-primary" strokeWidth={2} />
-              </div>
-              <h3 className="mt-4 font-display text-base font-semibold text-near-black">
-                {usp.title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted">
-                {usp.description}
-              </p>
+        </Reveal>
+
+        <Reveal>
+          <div className="mt-20 grid items-center gap-16 md:grid-cols-2 md:gap-20">
+            {/* Steps list */}
+            <div className="flex flex-col">
+              {STEPS.map((step, i) => (
+                <div
+                  key={step.num}
+                  className={`flex gap-6 border-b border-border py-7 transition-all first:pt-0 last:border-b-0`}
+                  onMouseEnter={() => setActiveStep(i)}
+                >
+                  <span
+                    className={`min-w-7 pt-0.5 font-display text-[13px] font-bold tracking-[1px] transition-colors ${
+                      i === activeStep ? 'text-primary' : 'text-placeholder'
+                    }`}
+                  >
+                    {step.num}
+                  </span>
+                  <div>
+                    <div
+                      className={`font-display text-xl font-bold tracking-[-0.5px] transition-colors ${
+                        i === activeStep ? 'text-text' : 'text-muted'
+                      }`}
+                    >
+                      {step.title}
+                    </div>
+                    <p className="mt-2 text-[15px] font-light leading-[1.6] text-muted">
+                      {step.desc}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+
+            {/* Preview panel */}
+            <div className="flex aspect-4/3 items-center justify-center overflow-hidden rounded-panel border border-ring bg-surface">
+              <div className="p-10 text-center">
+                <span className="mb-4 block animate-float text-[64px]">📄</span>
+                <div className="font-display text-lg font-bold text-muted">
+                  Drop your PDF here
+                </div>
+                <div className="mt-4 text-[13px] text-placeholder">
+                  or click to browse files
+                </div>
+                <Link to="/editor">
+                  <button className="mt-6 rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white transition-all hover:-translate-y-px hover:bg-primary-hover">
+                    Upload PDF
+                  </button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </Reveal>
       </div>
     </section>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Pricing                                                            */
-/* ------------------------------------------------------------------ */
+/* ===================================================================
+   Testimonials
+   =================================================================== */
+
+const TESTIMONIALS = [
+  {
+    text: "I've tried every free PDF editor out there. This one is genuinely the best — it does everything without nagging me to upgrade or slapping a watermark on my files.",
+    name: 'Sarah R.',
+    role: 'Freelance designer',
+    initials: 'SR',
+    color: '#4338ca',
+  },
+  {
+    text: "We use it at the whole agency for signing and sending contracts. It's faster than Adobe, lighter than any alternative, and my team loves how clean the UI is.",
+    name: 'Marcus K.',
+    role: 'Agency founder',
+    initials: 'MK',
+    color: '#0f766e',
+  },
+  {
+    text: 'Compressed a 40MB PDF to under 3MB in seconds. The quality barely changed. I use this every single day for client deliverables.',
+    name: 'Jamie P.',
+    role: 'Product manager',
+    initials: 'JP',
+    color: '#9d174d',
+  },
+]
+
+function TestimonialsSection() {
+  return (
+    <section id="testimonials" className="border-y border-border bg-surface">
+      <div className="mx-auto max-w-[1280px] px-6 py-[120px] md:px-12">
+        <Reveal>
+          <div className="mb-4 text-xs font-medium uppercase tracking-[2px] text-primary">
+            Loved by users
+          </div>
+          <h2 className="font-display text-[clamp(36px,5vw,64px)] font-extrabold leading-[1.05] tracking-[-2px] text-text">
+            Finally, a free tool
+            <br />
+            that actually works.
+          </h2>
+        </Reveal>
+
+        <Reveal>
+          <div className="mt-16 grid gap-6 md:grid-cols-3">
+            {TESTIMONIALS.map((t) => (
+              <div
+                key={t.name}
+                className="rounded-2xl border border-border bg-off-black p-7 transition-all duration-300 hover:-translate-y-1 hover:border-ring"
+              >
+                <div className="mb-4 text-sm tracking-[2px] text-gold">
+                  ★★★★★
+                </div>
+                <p className="mb-5 text-[15px] font-light italic leading-[1.7] text-text/80">
+                  &ldquo;{t.text}&rdquo;
+                </p>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-full font-display text-sm font-bold text-white"
+                    style={{ background: t.color }}
+                  >
+                    {t.initials}
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-text">
+                      {t.name}
+                    </div>
+                    <div className="text-xs text-muted">{t.role}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  )
+}
+
+/* ===================================================================
+   Pricing ($0 — free forever)
+   =================================================================== */
 
 function PricingSection() {
   return (
-    <section id="pricing" className="bg-surface-alt py-20 lg:py-28">
-      <div className="mx-auto max-w-3xl px-6">
-        <div className="text-center">
-          <h2 className="font-display text-3xl font-semibold tracking-tight text-near-black sm:text-4xl">
-            Simple pricing
-          </h2>
-          <p className="mt-4 text-base text-muted">
-            Start for free, upgrade when you need more.
-          </p>
-        </div>
-        <div className="mt-14 grid gap-6 sm:grid-cols-2">
-          {/* Free Plan */}
-          <div className="flex flex-col rounded-card border border-ring bg-surface p-6 shadow-card lg:p-8">
-            <h3 className="font-display text-lg font-semibold text-near-black">Free</h3>
-            <p className="mt-1 text-sm text-muted">For personal use</p>
-            <p className="mt-5 font-display text-4xl font-bold text-near-black">
+    <section id="pricing">
+      <div className="mx-auto max-w-[1280px] px-6 py-[120px] md:px-12">
+        <Reveal>
+          <div className="text-center">
+            <div className="mb-4 text-xs font-medium uppercase tracking-[2px] text-primary">
+              Pricing
+            </div>
+            <h2 className="font-display text-[clamp(36px,5vw,64px)] font-extrabold leading-[1.05] tracking-[-2px] text-text">
+              No pricing tiers.
+              <br />
+              No gotchas.
+            </h2>
+            <p className="mx-auto mt-6 max-w-[520px] text-lg font-light leading-[1.7] text-muted">
+              We believe great tools should be accessible to everyone. PDFPro is
+              free — full stop.
+            </p>
+          </div>
+        </Reveal>
+
+        <Reveal>
+          <div className="pricing-gradient-top relative mx-auto mt-16 max-w-[640px] overflow-hidden rounded-panel border border-border bg-surface p-12 text-center">
+            <span className="pricing-tag-gradient block font-display text-[72px] font-extrabold leading-none tracking-[-4px]">
               $0
-              <span className="text-base font-normal text-muted">/mo</span>
-            </p>
-            <ul className="mt-6 flex-1 space-y-3 text-sm text-muted">
-              {['Basic editing tools', 'Limited exports per day', 'Standard file size'].map(
-                (item) => (
-                  <li key={item} className="flex items-start gap-2">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-                    {item}
-                  </li>
-                ),
-              )}
-            </ul>
-            <Link to="/editor" className="mt-8">
-              <Button variant="secondary" size="lg" className="w-full">
-                Start Free
-              </Button>
-            </Link>
-          </div>
-          {/* Pro Plan */}
-          <div className="relative flex flex-col rounded-card border-2 border-primary bg-surface p-6 shadow-elevated lg:p-8">
-            <span className="absolute -top-3 left-6 rounded-pill bg-primary px-3 py-0.5 text-xs font-semibold text-white">
-              Popular
             </span>
-            <h3 className="font-display text-lg font-semibold text-near-black">Pro</h3>
-            <p className="mt-1 text-sm text-muted">For professionals</p>
-            <p className="mt-5 font-display text-4xl font-bold text-near-black">
-              $9
-              <span className="text-base font-normal text-muted">/mo</span>
+            <div className="mt-2 text-base font-medium text-green">
+              Free forever
+            </div>
+            <p className="mt-4 text-[15px] font-light leading-[1.6] text-muted">
+              Every feature. No file limits. No watermarks. No credit card. No
+              &ldquo;free trial&rdquo; that expires. We're supported by optional
+              donations and a Pro API for developers. The core editor will always
+              be free.
             </p>
-            <ul className="mt-6 flex-1 space-y-3 text-sm text-muted">
-              {[
-                'Unlimited editing & exports',
-                'No watermark',
-                'Advanced tools & OCR',
-                'Priority support',
-              ].map((item) => (
-                <li key={item} className="flex items-start gap-2">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <Link to="/editor" className="mt-8">
-              <Button variant="primary" size="lg" className="w-full">
-                Upgrade to Pro
-              </Button>
+            <Link to="/editor">
+              <button className="relative mt-8 overflow-hidden rounded-[10px] bg-primary px-9 py-4 text-base font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_60px_rgba(255,77,46,0.35)]">
+                <span className="absolute inset-0 bg-linear-to-br from-white/15 to-transparent" />
+                <span className="relative">Start editing for free →</span>
+              </button>
             </Link>
           </div>
-        </div>
+        </Reveal>
       </div>
     </section>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Final CTA                                                          */
-/* ------------------------------------------------------------------ */
+/* ===================================================================
+   CTA
+   =================================================================== */
 
-function FinalCtaSection() {
+function CTASection() {
   return (
-    <section className="bg-surface py-20 lg:py-28">
-      <div className="mx-auto max-w-2xl px-6 text-center">
-        <h2 className="font-display text-3xl font-semibold tracking-tight text-near-black sm:text-4xl">
-          Start editing your PDFs today
-        </h2>
-        <p className="mt-4 text-base text-muted lg:text-lg">
-          No signup required. Try it instantly.
-        </p>
-        <div className="mt-8">
-          <Link to="/editor">
-            <Button variant="primary" size="lg">
-              Open PDF Editor
-              <ArrowRight className="h-4.5 w-4.5" />
-            </Button>
-          </Link>
+    <section className="relative overflow-hidden px-6 py-[120px] text-center md:px-12">
+      <div className="cta-glow-bg pointer-events-none absolute left-1/2 top-1/2 h-[400px] w-[600px] -translate-x-1/2 -translate-y-1/2" />
+      <div className="relative z-10">
+        <div className="mb-5 inline-block rounded-full border border-green/20 bg-green/10 px-3.5 py-1.5 text-[13px] font-medium uppercase tracking-[1px] text-green">
+          ✓ Free forever
         </div>
+        <h2 className="font-display text-[clamp(48px,7vw,80px)] font-extrabold leading-none tracking-[-3px] text-text">
+          Stop paying for
+          <br />
+          PDF software.
+        </h2>
+        <p className="mt-6 text-lg font-light text-muted">
+          Everything you need. Free. In your browser. Right now.
+        </p>
+        <Link to="/editor">
+          <button className="relative mt-12 overflow-hidden rounded-[10px] bg-primary px-11 py-[18px] text-[17px] font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_60px_rgba(255,77,46,0.35)]">
+            <span className="absolute inset-0 bg-linear-to-br from-white/15 to-transparent" />
+            <span className="relative">Open PDF Editor — it's free →</span>
+          </button>
+        </Link>
       </div>
     </section>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Footer                                                             */
-/* ------------------------------------------------------------------ */
+/* ===================================================================
+   Footer
+   =================================================================== */
 
 function Footer() {
   return (
-    <footer className="border-t border-ring bg-surface-alt">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 sm:flex-row">
-        <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-[6px] bg-primary font-display text-[10px] font-bold text-white">
-            P
-          </span>
-          <span className="font-display text-sm font-semibold text-near-black">PDF Studio</span>
+    <footer className="flex flex-col items-center justify-between gap-6 border-t border-border px-6 py-12 sm:flex-row md:px-12">
+      <div className="flex items-center gap-2 font-display text-lg font-extrabold text-text">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-xs font-extrabold text-white">
+          P
         </div>
-        <nav className="flex items-center gap-6">
-          <a href="#" className="text-sm text-muted transition-colors hover:text-near-black">
-            Product
+        PDFPro
+      </div>
+      <div className="flex flex-wrap justify-center gap-8 text-[13px] text-muted">
+        {['Features', 'Privacy', 'Terms', 'Blog', 'Contact'].map((link) => (
+          <a key={link} href="#" className="transition-colors hover:text-text">
+            {link}
           </a>
-          <a href="#pricing" className="text-sm text-muted transition-colors hover:text-near-black">
-            Pricing
-          </a>
-          <a href="#" className="text-sm text-muted transition-colors hover:text-near-black">
-            Privacy
-          </a>
-          <a href="#" className="text-sm text-muted transition-colors hover:text-near-black">
-            Contact
-          </a>
-        </nav>
-        <p className="text-xs text-placeholder">
-          &copy; {new Date().getFullYear()} PDF Studio
-        </p>
+        ))}
+      </div>
+      <div className="text-[13px] text-placeholder">
+        &copy; {new Date().getFullYear()} PDFPro. Free forever.
       </div>
     </footer>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Page                                                               */
-/* ------------------------------------------------------------------ */
+/* ===================================================================
+   Page
+   =================================================================== */
 
 export function LandingPage() {
   return (
-    <div className="min-h-dvh font-body text-near-black">
+    <div className="noise-overlay min-h-dvh bg-near-black font-body text-text">
+      <CustomCursor />
       <Navbar />
       <main>
         <HeroSection />
-        <SocialProofSection />
-        <DemoSection />
+        <LogosStrip />
+        <MarqueeStrip />
         <FeaturesSection />
-        <WhyUsSection />
+        <HowItWorks />
+        <TestimonialsSection />
         <PricingSection />
-        <FinalCtaSection />
+        <CTASection />
       </main>
       <Footer />
     </div>

@@ -21,7 +21,7 @@ export function EditorPage() {
   }, [loadBlankA4])
 
   return (
-    <>
+    <div className="editor-theme min-h-dvh">
       <ExportingOverlay />
       <ToastHost />
       <div className={currentView === 'ready' ? 'hidden' : 'block'}>
@@ -45,6 +45,6 @@ export function EditorPage() {
         </EditorShell>
       </div>
       {currentView === 'ready' ? <DocumentReadyScreen /> : null}
-    </>
+    </div>
   )
 }

@@ -12,9 +12,9 @@ const variantStyles: Record<ButtonVariant, string> = {
   primary:
     'bg-primary text-white hover:bg-primary-hover active:bg-primary-pressed shadow-ring',
   secondary:
-    'bg-surface text-near-black border border-border hover:bg-surface-alt shadow-ring',
+    'bg-surface text-text border border-border hover:bg-surface-alt shadow-ring',
   ghost:
-    'bg-transparent text-muted hover:bg-surface-alt hover:text-near-black',
+    'bg-transparent text-muted hover:bg-surface-alt hover:text-text',
   accent:
     'bg-accent text-white hover:bg-accent-hover shadow-ring',
   destructive:
