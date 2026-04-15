@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { Sun, Moon } from "lucide-react";
+import { usePdfEditorStore } from "../store/pdfEditorStore";
 
 /* ===================================================================
    Reveal wrapper — IntersectionObserver driven
@@ -7,41 +9,41 @@ import { Link } from 'react-router-dom'
 
 function Reveal({
   children,
-  className = '',
+  className = "",
   delay = 0,
 }: {
-  children: React.ReactNode
-  className?: string
-  delay?: number
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
 }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [visible, setVisible] = useState(false)
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const el = ref.current
-    if (!el) return
+    const el = ref.current;
+    if (!el) return;
     const obs = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setVisible(true)
-          obs.unobserve(el)
+          setVisible(true);
+          obs.unobserve(el);
         }
       },
       { threshold: 0.12 },
-    )
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [])
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   return (
     <div
       ref={ref}
-      className={`reveal-section ${visible ? 'visible' : ''} ${className}`}
+      className={`reveal-section ${visible ? "visible" : ""} ${className}`}
       style={delay ? { transitionDelay: `${delay}s` } : undefined}
     >
       {children}
     </div>
-  )
+  );
 }
 
 /* ===================================================================
@@ -49,29 +51,29 @@ function Reveal({
    =================================================================== */
 
 function CustomCursor() {
-  const dotRef = useRef<HTMLDivElement>(null)
-  const ringRef = useRef<HTMLDivElement>(null)
+  const dotRef = useRef<HTMLDivElement>(null);
+  const ringRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const dot = dotRef.current
-    const ring = ringRef.current
-    if (!dot || !ring) return
+    const dot = dotRef.current;
+    const ring = ringRef.current;
+    if (!dot || !ring) return;
     const onMove = (e: MouseEvent) => {
-      dot.style.left = `${e.clientX}px`
-      dot.style.top = `${e.clientY}px`
-      ring.style.left = `${e.clientX}px`
-      ring.style.top = `${e.clientY}px`
-    }
-    window.addEventListener('mousemove', onMove)
-    return () => window.removeEventListener('mousemove', onMove)
-  }, [])
+      dot.style.left = `${e.clientX}px`;
+      dot.style.top = `${e.clientY}px`;
+      ring.style.left = `${e.clientX}px`;
+      ring.style.top = `${e.clientY}px`;
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, []);
 
   return (
     <>
       <div ref={dotRef} className="lp-cursor hidden md:block" />
       <div ref={ringRef} className="lp-cursor-ring hidden md:block" />
     </>
-  )
+  );
 }
 
 /* ===================================================================
@@ -79,25 +81,29 @@ function CustomCursor() {
    =================================================================== */
 
 const NAV_LINKS = [
-  { label: 'Features', href: '#features' },
-  { label: 'How it works', href: '#how' },
-  { label: 'Reviews', href: '#testimonials' },
-  { label: 'Pricing', href: '#pricing' },
-]
+  { label: "Features", href: "#features" },
+  { label: "How it works", href: "#how" },
+  { label: "Reviews", href: "#testimonials" },
+  { label: "Pricing", href: "#pricing" },
+];
 
 function Navbar() {
-  const [scrolled, setScrolled] = useState(false)
+  const [scrolled, setScrolled] = useState(false);
+  const theme = usePdfEditorStore((s) => s.theme);
+  const toggleTheme = usePdfEditorStore((s) => s.toggleTheme);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40)
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <nav
       className={`fixed inset-x-0 top-0 z-50 flex items-center justify-between px-6 py-5 transition-all duration-300 md:px-12 ${
-        scrolled ? 'border-b border-border bg-near-black/85 backdrop-blur-xl' : ''
+        scrolled
+          ? "border-b border-border bg-near-black/85 backdrop-blur-xl"
+          : ""
       }`}
     >
       <Link to="/" className="flex items-center gap-2.5">
@@ -123,8 +129,17 @@ function Navbar() {
       </ul>
 
       <div className="flex items-center gap-4">
-        <button className="hidden text-sm font-medium text-muted transition-colors hover:text-text sm:block">
-          Sign in
+        <button
+          type="button"
+          onClick={toggleTheme}
+          title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted transition-all hover:bg-surface-alt hover:text-text"
+        >
+          {theme === "light" ? (
+            <Moon className="h-4 w-4" />
+          ) : (
+            <Sun className="h-4 w-4" />
+          )}
         </button>
         <Link
           to="/editor"
@@ -134,7 +149,7 @@ function Navbar() {
         </Link>
       </div>
     </nav>
-  )
+  );
 }
 
 /* ===================================================================
@@ -142,16 +157,16 @@ function Navbar() {
    =================================================================== */
 
 const TOOLS = [
-  { icon: '✏️', label: 'Edit Text', active: true },
-  { icon: '🖊️', label: 'Annotate', active: false },
-  { icon: '🖋️', label: 'Signature', active: false },
-  { icon: '📐', label: 'Draw', active: false },
-  { icon: '🗜️', label: 'Compress', active: false },
-  { icon: '🔗', label: 'Merge PDF', active: false },
-  { icon: '✂️', label: 'Split PDF', active: false },
-  { icon: '🔄', label: 'Convert', active: false },
-  { icon: '🔒', label: 'Protect', active: false },
-]
+  { icon: "✏️", label: "Edit Text", active: true },
+  { icon: "🖊️", label: "Annotate", active: false },
+  { icon: "🖋️", label: "Signature", active: false },
+  { icon: "📐", label: "Draw", active: false },
+  { icon: "🗜️", label: "Compress", active: false },
+  { icon: "🔗", label: "Merge PDF", active: false },
+  { icon: "✂️", label: "Split PDF", active: false },
+  { icon: "🔄", label: "Convert", active: false },
+  { icon: "🔒", label: "Protect", active: false },
+];
 
 function MockupBrowser() {
   return (
@@ -178,9 +193,7 @@ function MockupBrowser() {
             <div
               key={t.label}
               className={`mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] transition-colors ${
-                t.active
-                  ? 'bg-primary/12 text-accent'
-                  : 'text-muted'
+                t.active ? "bg-primary/12 text-accent" : "text-muted"
               }`}
             >
               <span className="w-5 text-center text-sm">{t.icon}</span>
@@ -216,13 +229,15 @@ function MockupBrowser() {
             <span className="text-base">🔒</span>
             <div>
               <div className="text-[13px] font-medium">End-to-end secure</div>
-              <div className="text-[11px] text-muted">Files deleted after 1h</div>
+              <div className="text-[11px] text-muted">
+                Files deleted after 1h
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 /* ===================================================================
@@ -256,16 +271,20 @@ function HeroSection() {
           compress, sign, and convert — all in your browser.
         </p>
 
-        <div className="mt-12 flex animate-fade-up-d3 flex-wrap items-center justify-center gap-4">
+        <div className="mt-12 flex animate-fade-up-d3 flex-col items-center justify-center gap-4">
           <Link to="/editor">
-            <button className="relative overflow-hidden rounded-[10px] bg-primary px-9 py-4 text-base font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_60px_rgba(255,77,46,0.35)]">
+            <button className="relative overflow-hidden rounded-[10px] bg-primary px-12 py-4 text-lg font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_60px_rgba(255,77,46,0.35)]">
               <span className="absolute inset-0 bg-linear-to-br from-white/15 to-transparent" />
-              <span className="relative">Open PDF Editor →</span>
+              <span className="relative flex items-center gap-2">
+                <span className="text-xl">⬆</span> Upload PDF
+              </span>
             </button>
           </Link>
-          <button className="rounded-[10px] border border-ring px-9 py-4 text-base text-muted transition-all hover:border-white/20 hover:text-text">
-            Watch demo
-          </button>
+          <Link to="/editor?action=blank">
+            <button className="text-sm font-medium text-muted transition-all hover:text-text border-b border-transparent hover:border-muted pb-0.5">
+              or start with blank page
+            </button>
+          </Link>
         </div>
 
         <p className="mt-6 animate-fade-up-d4 text-[13px] text-placeholder">
@@ -278,7 +297,7 @@ function HeroSection() {
         <MockupBrowser />
       </div>
     </section>
-  )
+  );
 }
 
 /* ===================================================================
@@ -286,19 +305,19 @@ function HeroSection() {
    =================================================================== */
 
 const LOGOS = [
-  'Notion',
-  'Figma',
-  'Stripe',
-  'Linear',
-  'Vercel',
-  'Loom',
-  'Intercom',
-  'Framer',
-]
+  "Notion",
+  "Figma",
+  "Stripe",
+  "Linear",
+  "Vercel",
+  "Loom",
+  "Intercom",
+  "Framer",
+];
 
 function LogosStrip() {
-  const items = LOGOS.flatMap((name) => [name, '—'])
-  const doubled = [...items, ...items]
+  const items = LOGOS.flatMap((name) => [name, "—"]);
+  const doubled = [...items, ...items];
 
   return (
     <div className="overflow-hidden border-y border-border py-[60px] text-center">
@@ -311,7 +330,7 @@ function LogosStrip() {
             <span
               key={i}
               className={`font-display text-xl font-bold whitespace-nowrap tracking-[-0.5px] ${
-                item === '—' ? 'text-text/10' : 'text-placeholder'
+                item === "—" ? "text-text/10" : "text-placeholder"
               }`}
             >
               {item}
@@ -320,7 +339,7 @@ function LogosStrip() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 /* ===================================================================
@@ -328,22 +347,22 @@ function LogosStrip() {
    =================================================================== */
 
 const MARQUEE_ITEMS = [
-  'Edit Text',
-  'Add Images',
-  'E-Sign Documents',
-  'Merge PDFs',
-  'Split Pages',
-  'Compress Files',
-  'Annotate & Comment',
-  'Convert to Word',
-  'Password Protect',
-  'Rotate & Crop',
-  'Fill Forms',
-  'Redact Text',
-]
+  "Edit Text",
+  "Add Images",
+  "E-Sign Documents",
+  "Merge PDFs",
+  "Split Pages",
+  "Compress Files",
+  "Annotate & Comment",
+  "Convert to Word",
+  "Password Protect",
+  "Rotate & Crop",
+  "Fill Forms",
+  "Redact Text",
+];
 
 function MarqueeStrip() {
-  const doubled = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS]
+  const doubled = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
 
   return (
     <div className="overflow-hidden border-y border-border py-10">
@@ -359,7 +378,7 @@ function MarqueeStrip() {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 /* ===================================================================
@@ -368,44 +387,44 @@ function MarqueeStrip() {
 
 const FEATURES = [
   {
-    icon: '✏️',
-    title: 'Edit text directly in PDFs',
-    desc: 'Click on any text in your PDF and start editing. Change fonts, sizes, colors. Add new text boxes anywhere on the page.',
+    icon: "✏️",
+    title: "Edit text directly in PDFs",
+    desc: "Click on any text in your PDF and start editing. Change fonts, sizes, colors. Add new text boxes anywhere on the page.",
     wide: true,
     bar: true,
   },
   {
-    icon: '🔗',
-    title: 'Merge & split',
-    desc: 'Combine multiple PDFs into one, or split a large file into separate documents instantly.',
+    icon: "🔗",
+    title: "Merge & split",
+    desc: "Combine multiple PDFs into one, or split a large file into separate documents instantly.",
   },
   {
-    icon: '🖋️',
-    title: 'E-signatures',
-    desc: 'Draw, type, or upload your signature. Sign legally binding documents in seconds.',
+    icon: "🖋️",
+    title: "E-signatures",
+    desc: "Draw, type, or upload your signature. Sign legally binding documents in seconds.",
   },
   {
-    icon: '🗜️',
-    title: 'Smart compression',
-    desc: 'Reduce file size by up to 90% without visible quality loss. Share and upload files with ease.',
+    icon: "🗜️",
+    title: "Smart compression",
+    desc: "Reduce file size by up to 90% without visible quality loss. Share and upload files with ease.",
   },
   {
-    icon: '🔒',
-    title: 'Security-first by design',
-    desc: 'All files are processed in-browser or deleted from our servers within 1 hour. Your documents never leave your control. We use end-to-end encryption on all uploads.',
+    icon: "🔒",
+    title: "Security-first by design",
+    desc: "All files are processed in-browser or deleted from our servers within 1 hour. Your documents never leave your control. We use end-to-end encryption on all uploads.",
     wide: true,
   },
   {
-    icon: '🔄',
-    title: 'Convert anything',
-    desc: 'PDF to Word, Excel, PowerPoint, JPEG, PNG — or convert files to PDF. Fast and accurate.',
+    icon: "🔄",
+    title: "Convert anything",
+    desc: "PDF to Word, Excel, PowerPoint, JPEG, PNG — or convert files to PDF. Fast and accurate.",
   },
   {
-    icon: '🖊️',
-    title: 'Annotate & comment',
-    desc: 'Highlight, underline, strike through text. Add sticky notes and freehand drawings.',
+    icon: "🖊️",
+    title: "Annotate & comment",
+    desc: "Highlight, underline, strike through text. Add sticky notes and freehand drawings.",
   },
-]
+];
 
 function FeaturesSection() {
   return (
@@ -432,7 +451,7 @@ function FeaturesSection() {
               <div
                 key={feat.title}
                 className={`feature-card-glow relative overflow-hidden rounded-2xl border border-border bg-surface p-8 transition-all duration-300 hover:-translate-y-1 hover:border-ring ${
-                  feat.wide ? 'sm:col-span-2' : ''
+                  feat.wide ? "sm:col-span-2" : ""
                 }`}
               >
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-xl">
@@ -455,7 +474,7 @@ function FeaturesSection() {
         </Reveal>
       </div>
     </section>
-  )
+  );
 }
 
 /* ===================================================================
@@ -468,44 +487,44 @@ function AnimatedStat({
   isFloat,
   label,
 }: {
-  target: number
-  suffix: string
-  isFloat?: boolean
-  label: string
+  target: number;
+  suffix: string;
+  isFloat?: boolean;
+  label: string;
 }) {
-  const ref = useRef<HTMLSpanElement>(null)
-  const started = useRef(false)
+  const ref = useRef<HTMLSpanElement>(null);
+  const started = useRef(false);
 
   useEffect(() => {
-    const el = ref.current
-    if (!el) return
+    const el = ref.current;
+    if (!el) return;
     const obs = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && !started.current) {
-          started.current = true
-          obs.unobserve(el)
-          const duration = 1800
-          const start = performance.now()
+          started.current = true;
+          obs.unobserve(el);
+          const duration = 1800;
+          const start = performance.now();
           const tick = (now: number) => {
-            const progress = Math.min((now - start) / duration, 1)
-            const eased = 1 - Math.pow(1 - progress, 3)
-            const current = eased * target
+            const progress = Math.min((now - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = eased * target;
             el.textContent =
               (isFloat ? current.toFixed(1) : Math.floor(current).toString()) +
-              suffix
-            if (progress < 1) requestAnimationFrame(tick)
+              suffix;
+            if (progress < 1) requestAnimationFrame(tick);
             else
               el.textContent =
-                (isFloat ? target.toFixed(1) : target.toString()) + suffix
-          }
-          requestAnimationFrame(tick)
+                (isFloat ? target.toFixed(1) : target.toString()) + suffix;
+          };
+          requestAnimationFrame(tick);
         }
       },
       { threshold: 0.5 },
-    )
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [target, suffix, isFloat])
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [target, suffix, isFloat]);
 
   return (
     <div className="bg-surface px-6 py-8 text-center transition-colors hover:bg-surface-alt md:px-8 md:py-10">
@@ -513,12 +532,12 @@ function AnimatedStat({
         ref={ref}
         className="gradient-text mb-2 block font-display text-[clamp(36px,4vw,56px)] font-extrabold tracking-[-2px]"
       >
-        {isFloat ? '0.0' : '0'}
+        {isFloat ? "0.0" : "0"}
         {suffix}
       </span>
       <span className="text-sm text-muted">{label}</span>
     </div>
-  )
+  );
 }
 
 function StatsRow() {
@@ -526,15 +545,10 @@ function StatsRow() {
     <div className="mt-20 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border md:grid-cols-4">
       <AnimatedStat target={2} suffix="M+" label="PDFs processed" />
       <AnimatedStat target={180} suffix="+" label="Countries worldwide" />
-      <AnimatedStat
-        target={0.3}
-        suffix="s"
-        isFloat
-        label="Average load time"
-      />
+      <AnimatedStat target={0.3} suffix="s" isFloat label="Average load time" />
       <AnimatedStat target={100} suffix="%" label="Forever free" />
     </div>
-  )
+  );
 }
 
 /* ===================================================================
@@ -543,30 +557,27 @@ function StatsRow() {
 
 const STEPS = [
   {
-    num: '01',
-    title: 'Upload your PDF',
-    desc: 'Drag and drop your file, click to browse, or paste a URL. We support PDFs up to 500MB.',
+    num: "01",
+    title: "Upload your PDF",
+    desc: "Drag and drop your file, click to browse, or paste a URL. We support PDFs up to 500MB.",
   },
   {
-    num: '02',
-    title: 'Edit with powerful tools',
-    desc: 'Use our full suite of tools — edit text, add annotations, merge, compress, sign, and more. Everything works right in your browser.',
+    num: "02",
+    title: "Edit with powerful tools",
+    desc: "Use our full suite of tools — edit text, add annotations, merge, compress, sign, and more. Everything works right in your browser.",
   },
   {
-    num: '03',
-    title: 'Download or share',
-    desc: 'Download your finished PDF instantly or share it with a secure, expiring link. Zero watermarks. Always.',
+    num: "03",
+    title: "Download or share",
+    desc: "Download your finished PDF instantly or share it with a secure, expiring link. Zero watermarks. Always.",
   },
-]
+];
 
 function HowItWorks() {
-  const [activeStep, setActiveStep] = useState(0)
+  const [activeStep, setActiveStep] = useState(0);
 
   return (
-    <section
-      id="how"
-      className="border-t border-border bg-surface"
-    >
+    <section id="how" className="border-t border-border bg-surface">
       <div className="mx-auto max-w-[1280px] px-6 py-[120px] md:px-12">
         <Reveal>
           <div className="mb-4 text-xs font-medium uppercase tracking-[2px] text-primary">
@@ -591,7 +602,7 @@ function HowItWorks() {
                 >
                   <span
                     className={`min-w-7 pt-0.5 font-display text-[13px] font-bold tracking-[1px] transition-colors ${
-                      i === activeStep ? 'text-primary' : 'text-placeholder'
+                      i === activeStep ? "text-primary" : "text-placeholder"
                     }`}
                   >
                     {step.num}
@@ -599,7 +610,7 @@ function HowItWorks() {
                   <div>
                     <div
                       className={`font-display text-xl font-bold tracking-[-0.5px] transition-colors ${
-                        i === activeStep ? 'text-text' : 'text-muted'
+                        i === activeStep ? "text-text" : "text-muted"
                       }`}
                     >
                       {step.title}
@@ -633,7 +644,7 @@ function HowItWorks() {
         </Reveal>
       </div>
     </section>
-  )
+  );
 }
 
 /* ===================================================================
@@ -643,26 +654,26 @@ function HowItWorks() {
 const TESTIMONIALS = [
   {
     text: "I've tried every free PDF editor out there. This one is genuinely the best — it does everything without nagging me to upgrade or slapping a watermark on my files.",
-    name: 'Sarah R.',
-    role: 'Freelance designer',
-    initials: 'SR',
-    color: '#4338ca',
+    name: "Sarah R.",
+    role: "Freelance designer",
+    initials: "SR",
+    color: "#4338ca",
   },
   {
     text: "We use it at the whole agency for signing and sending contracts. It's faster than Adobe, lighter than any alternative, and my team loves how clean the UI is.",
-    name: 'Marcus K.',
-    role: 'Agency founder',
-    initials: 'MK',
-    color: '#0f766e',
+    name: "Marcus K.",
+    role: "Agency founder",
+    initials: "MK",
+    color: "#0f766e",
   },
   {
-    text: 'Compressed a 40MB PDF to under 3MB in seconds. The quality barely changed. I use this every single day for client deliverables.',
-    name: 'Jamie P.',
-    role: 'Product manager',
-    initials: 'JP',
-    color: '#9d174d',
+    text: "Compressed a 40MB PDF to under 3MB in seconds. The quality barely changed. I use this every single day for client deliverables.",
+    name: "Jamie P.",
+    role: "Product manager",
+    initials: "JP",
+    color: "#9d174d",
   },
-]
+];
 
 function TestimonialsSection() {
   return (
@@ -712,7 +723,7 @@ function TestimonialsSection() {
         </Reveal>
       </div>
     </section>
-  )
+  );
 }
 
 /* ===================================================================
@@ -751,20 +762,20 @@ function PricingSection() {
             <p className="mt-4 text-[15px] font-light leading-[1.6] text-muted">
               Every feature. No file limits. No watermarks. No credit card. No
               &ldquo;free trial&rdquo; that expires. We're supported by optional
-              donations and a Pro API for developers. The core editor will always
-              be free.
+              donations and a Pro API for developers. The core editor will
+              always be free.
             </p>
             <Link to="/editor">
               <button className="relative mt-8 overflow-hidden rounded-[10px] bg-primary px-9 py-4 text-base font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_60px_rgba(255,77,46,0.35)]">
                 <span className="absolute inset-0 bg-linear-to-br from-white/15 to-transparent" />
-                <span className="relative">Start editing for free →</span>
+                <span className="relative">Upload PDF →</span>
               </button>
             </Link>
           </div>
         </Reveal>
       </div>
     </section>
-  )
+  );
 }
 
 /* ===================================================================
@@ -790,12 +801,12 @@ function CTASection() {
         <Link to="/editor">
           <button className="relative mt-12 overflow-hidden rounded-[10px] bg-primary px-11 py-[18px] text-[17px] font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_60px_rgba(255,77,46,0.35)]">
             <span className="absolute inset-0 bg-linear-to-br from-white/15 to-transparent" />
-            <span className="relative">Open PDF Editor — it's free →</span>
+            <span className="relative">Upload PDF — it's free →</span>
           </button>
         </Link>
       </div>
     </section>
-  )
+  );
 }
 
 /* ===================================================================
@@ -812,7 +823,7 @@ function Footer() {
         PDFPro
       </div>
       <div className="flex flex-wrap justify-center gap-8 text-[13px] text-muted">
-        {['Features', 'Privacy', 'Terms', 'Blog', 'Contact'].map((link) => (
+        {["Features", "Privacy", "Terms", "Blog", "Contact"].map((link) => (
           <a key={link} href="#" className="transition-colors hover:text-text">
             {link}
           </a>
@@ -822,7 +833,7 @@ function Footer() {
         &copy; {new Date().getFullYear()} PDFPro. Free forever.
       </div>
     </footer>
-  )
+  );
 }
 
 /* ===================================================================
@@ -846,5 +857,5 @@ export function LandingPage() {
       </main>
       <Footer />
     </div>
-  )
+  );
 }
