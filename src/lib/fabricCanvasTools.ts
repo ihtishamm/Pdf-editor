@@ -7,6 +7,7 @@ import {
   Line,
   Path,
   PencilBrush,
+  Point,
   Rect,
   type Canvas,
   type FabricObject,
@@ -361,8 +362,25 @@ export function attachFabricCanvasTools(
 
     if (tool === "select") return;
 
-    if (opt.target && tool !== "annotate" && !isFormGhostObject(opt.target)) {
-      return;
+    if (opt.target && !isFormGhostObject(opt.target)) {
+      // If the user clicks an existing object that matches the tool (e.g. highlight while highlight tool active),
+      // we don't return, but we should make sure it's active so the properties toolbar can show up.
+      const d = (opt.target as FabricObject & { data?: { tool?: string } })
+        .data;
+      const isAnnotate = tool === "annotate" && d?.tool === "annotate";
+      const isShape = tool === "shapes" && d?.tool === "shape";
+      const isWhiteout = tool === "whiteout" && d?.tool === "whiteout";
+
+      if (isAnnotate || isShape || isWhiteout) {
+        canvas.setActiveObject(opt.target);
+        canvas.requestRenderAll();
+        return;
+      }
+
+      // If it's a different tool, we ignore clicks on objects to avoid accidental drags
+      if (tool !== "annotate" && tool !== "shapes" && tool !== "whiteout") {
+        return;
+      }
     }
 
     if (tool === "forms") {
@@ -614,6 +632,94 @@ export function attachFabricCanvasTools(
     const h = temp.height ?? 0;
     const right = left + w;
     const bottom = top + h;
+
+    if (d.mode === "annotate") {
+      const av = d.annotateVariant;
+      // Text-Aware Annotation Snap Logic (Sejda flow)
+      const intersectingText = canvas.getObjects().filter((obj) => {
+        if (!(obj instanceof IText)) return false;
+        // Skip text created by the user (non-persisted PDF source text has specific data)
+        const dObj = (obj as IText & { data?: { pdfTextSource?: boolean } })
+          .data;
+        if (!dObj?.pdfTextSource) return false;
+        return obj.intersectsWithRect(
+          new Point(left, top),
+          new Point(left + w, top + h),
+        );
+      }) as IText[];
+
+      if (intersectingText.length > 0) {
+        // Remove the preview box
+        canvas.remove(temp);
+
+        // Group by line (roughly similar top coordinate)
+        const lines: IText[][] = [];
+        intersectingText.forEach((t) => {
+          const top = t.top ?? 0;
+          const foundLine = lines.find(
+            (l) => Math.abs((l[0]?.top ?? 0) - top) < 5,
+          );
+          if (foundLine) foundLine.push(t);
+          else lines.push([t]);
+        });
+
+        lines.forEach((line) => {
+          // Merge bounds for this line
+          let minL = Infinity,
+            minT = Infinity,
+            maxR = -Infinity,
+            maxB = -Infinity;
+          line.forEach((t) => {
+            const br = t.getBoundingRect();
+            minL = Math.min(minL, br.left);
+            minT = Math.min(minT, br.top);
+            maxR = Math.max(maxR, br.left + br.width);
+            maxB = Math.max(maxB, br.top + br.height);
+          });
+
+          const w = maxR - minL;
+          const h = maxB - minT;
+          let ann: FabricObject;
+
+          if (!av) return;
+          if (av === "highlight") {
+            ann = new Rect({
+              left: minL,
+              top: minT,
+              width: w,
+              height: h,
+              fill: "rgba(255, 255, 0, 0.35)",
+              stroke: "transparent",
+              objectCaching: false,
+            });
+          } else if (av === "underline") {
+            ann = new Line([minL, maxB - 1, maxR, maxB - 1], {
+              stroke: "#2563eb",
+              strokeWidth: 2,
+              objectCaching: false,
+            });
+          } else {
+            // strike
+            const midY = minT + h / 2;
+            ann = new Line([minL, midY, maxR, midY], {
+              stroke: "#dc2626",
+              strokeWidth: 2,
+              objectCaching: false,
+            });
+          }
+
+          Object.assign(ann, { data: { tool: "annotate", variant: av } });
+          const label = av.charAt(0).toUpperCase() + av.slice(1);
+          markFabricHistoryUser(ann, "annotation", label);
+          canvas.add(ann);
+          finalizeOverlayObject(canvas, ann);
+          canvas.setActiveObject(ann);
+        });
+
+        canvas.requestRenderAll();
+        return;
+      }
+    }
 
     if (d.mode === "shape" && d.shapeVariant === "circle") {
       canvas.remove(temp);

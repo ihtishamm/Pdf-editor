@@ -125,6 +125,13 @@ export function PDFPage({
       maskCanvas.width = w;
       maskCanvas.height = h;
 
+      // Ensure a white background before PDF.js settles in (fixes "black page" 이슈s)
+      const ctx = pdfCanvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, w, h);
+      }
+
       renderTask = page.render({
         canvas: pdfCanvas,
         viewport,
@@ -454,7 +461,7 @@ export function PDFPage({
       </div>
 
       <div
-        className="relative shadow-[0_8px_32px_rgba(0,0,0,0.15)] ring-1 ring-border"
+        className="relative bg-white shadow-[0_8px_32px_rgba(0,0,0,0.15)] ring-1 ring-border"
         onDragEnter={handleDragOver}
         onDragOver={handleDragOver}
         onDrop={handleDrop}

@@ -132,7 +132,6 @@ export function EditorShell({ children }: EditorShellProps) {
   const setShapeVariant = usePdfEditorStore((s) => s.setShapeVariant);
   const annotateVariant = usePdfEditorStore((s) => s.annotateVariant);
   const setAnnotateVariant = usePdfEditorStore((s) => s.setAnnotateVariant);
-  const setCommentPanelOpen = usePdfEditorStore((s) => s.setCommentPanelOpen);
   const enqueueImageInsert = usePdfEditorStore((s) => s.enqueueImageInsert);
   const pdfSourceBytes = usePdfEditorStore((s) => s.pdfSourceBytes);
   const formFields = usePdfEditorStore((s) => s.formFields);
@@ -474,7 +473,6 @@ export function EditorShell({ children }: EditorShellProps) {
                         onClick={() => {
                           setAnnotateVariant(id);
                           setActiveTool("annotate");
-                          if (id === "comment") setCommentPanelOpen(true);
                         }}
                       />
                     ))}

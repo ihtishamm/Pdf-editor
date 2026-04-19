@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { IText } from "fabric";
 import { Plus } from "lucide-react";
 import { usePdfEditorStore } from "../store/pdfEditorStore";
 import { PDFPage } from "./PDFPage";
@@ -6,7 +7,7 @@ import { FormFieldFloatingToolbar } from "./FormFieldFloatingToolbar";
 import { ShapePropertiesToolbar } from "./ShapePropertiesToolbar";
 import { ImagePropertiesPanel } from "./ImagePropertiesPanel";
 import { TextEditToolbar } from "./TextEditToolbar";
-import { CommentPanel } from "./CommentPanel";
+import { CommentPopover } from "./CommentPopover";
 
 /**
  * Renders all PDF pages in a scrollable vertical list.
@@ -22,7 +23,7 @@ export function PDFViewer() {
 
   const measureRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
-  const [selectedIText, setSelectedIText] = useState<any>(null);
+  const [selectedIText, setSelectedIText] = useState<IText | null>(null);
   const lastViewedPage = useRef(1);
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export function PDFViewer() {
     [setPage],
   );
 
-  const handleSelectionIText = useCallback((t: any) => {
+  const handleSelectionIText = useCallback((t: IText | null) => {
     setSelectedIText(t);
   }, []);
 
@@ -66,7 +67,7 @@ export function PDFViewer() {
         />
         <ShapePropertiesToolbar canvas={activeCanvas} activeTool={activeTool} />
         <ImagePropertiesPanel canvas={activeCanvas} activeTool={activeTool} />
-        <CommentPanel />
+        <CommentPopover canvas={activeCanvas} />
 
         <div className="flex w-full max-w-full flex-col gap-4">
           {/* Insert before first page */}

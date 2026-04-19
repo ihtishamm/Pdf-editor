@@ -99,7 +99,7 @@ export function ShapePropertiesToolbar({
   }, []);
 
   useEffect(() => {
-    if (!canvas || activeTool !== "select") return;
+    if (!canvas) return;
     const sync = () => {
       const o = canvas.getActiveObject();
       setTarget(o && isOverlayPropertiesObject(o) ? o : null);
@@ -179,7 +179,7 @@ export function ShapePropertiesToolbar({
     canvas.requestRenderAll();
   };
 
-  if (!target || !canvas || activeTool !== "select") {
+  if (!target || !canvas) {
     return null;
   }
 
@@ -240,48 +240,85 @@ export function ShapePropertiesToolbar({
       {(kind === "shape" ||
         kind === "whiteout" ||
         kind === "annotate-line") && (
-        <label className="flex items-center gap-1">
-          <span className="text-muted">Border</span>
+        <div className="flex items-center gap-1.5 mr-2">
+          {[
+            "#1f2937",
+            "#dc2626",
+            "#2563eb",
+            "#059669",
+            "#d97706",
+            "#7c3aed",
+          ].map((c) => (
+            <button
+              key={c}
+              type="button"
+              className={`h-5 w-5 rounded-full border border-border shadow-sm transition-transform hover:scale-110 ${
+                stroke === c ? "ring-1 ring-primary ring-offset-1" : ""
+              }`}
+              style={{ background: c }}
+              onClick={() => apply({ stroke: c })}
+            />
+          ))}
           <input
             type="color"
-            className="h-8 w-10 cursor-pointer rounded border border-ring bg-surface-3 p-0"
+            className="h-6 w-6 cursor-pointer rounded-full border border-border bg-surface-3 p-0"
             value={stroke}
-            onChange={(e) => {
-              apply({ stroke: e.target.value });
-            }}
+            onChange={(e) => apply({ stroke: e.target.value })}
           />
-        </label>
+        </div>
       )}
 
       {(kind === "shape" || kind === "whiteout" || kind === "annotate-hl") && (
-        <label className="flex items-center gap-1">
-          <span className="text-muted">Fill</span>
-          <input
-            type="color"
-            className="h-8 w-10 cursor-pointer rounded border border-ring bg-surface-3 p-0"
-            value={fillForPicker}
-            onChange={(e) => {
-              if (kind === "annotate-hl") {
-                const next = buildRgbaFromHex(
-                  e.target.value,
-                  highlightFillAlpha,
-                );
-                apply({ fill: next });
-              } else {
-                apply({ fill: e.target.value });
-              }
-            }}
-          />
-          {(kind === "shape" || kind === "annotate-hl") && (
-            <button
-              type="button"
-              className="rounded border border-ring px-1.5 py-0.5 text-xs text-muted hover:bg-surface-3"
-              onClick={() => apply({ fill: "transparent" })}
-            >
-              None
-            </button>
+        <div className="flex items-center gap-1.5 mr-2">
+          {kind === "annotate-hl"
+            ? [
+                "rgba(255, 255, 0, 0.35)", // Yellow
+                "rgba(34, 197, 94, 0.35)", // Green
+                "rgba(59, 130, 246, 0.35)", // Blue
+                "rgba(244, 114, 182, 0.35)", // Pink
+                "rgba(239, 68, 68, 0.35)", // Red
+              ].map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`h-5 w-5 rounded-full border border-border shadow-sm transition-transform hover:scale-110 ${
+                    fillStr === c ? "ring-1 ring-primary ring-offset-1" : ""
+                  }`}
+                  style={{ background: c }}
+                  onClick={() => apply({ fill: c })}
+                />
+              ))
+            : [
+                "#ffffff",
+                "#ff4d2e",
+                "#ffcc44",
+                "#2dff9b",
+                "#2563eb",
+                "transparent",
+              ].map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`h-5 w-5 rounded-full border border-border shadow-sm transition-transform hover:scale-110 ${
+                    fillStr === c ? "ring-1 ring-primary ring-offset-1" : ""
+                  }`}
+                  style={{ background: c === "transparent" ? "white" : c }}
+                  onClick={() => apply({ fill: c })}
+                >
+                  {c === "transparent" && (
+                    <div className="h-px w-full rotate-45 bg-destructive" />
+                  )}
+                </button>
+              ))}
+          {kind !== "annotate-hl" && (
+            <input
+              type="color"
+              className="h-6 w-6 cursor-pointer rounded-full border border-border bg-surface-3 p-0"
+              value={fillForPicker}
+              onChange={(e) => apply({ fill: e.target.value })}
+            />
           )}
-        </label>
+        </div>
       )}
 
       {kind === "annotate-hl" && (
