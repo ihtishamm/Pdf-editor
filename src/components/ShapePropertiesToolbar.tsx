@@ -1,78 +1,86 @@
-import { Canvas, type FabricObject } from 'fabric'
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { Trash2 } from "lucide-react";
+import { Canvas, type FabricObject } from "fabric";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import {
   isAnnotateToolObject,
   isOverlayPropertiesObject,
   isShapeToolObject,
   isWhiteoutObject,
-} from '../lib/fabricCanvasTools'
-import type { EditorTool } from '../types/editorTools'
+} from "../lib/fabricCanvasTools";
+import type { EditorTool } from "../types/editorTools";
 
 type ShapePropertiesToolbarProps = {
-  canvas: Canvas | null
-  activeTool: EditorTool
-}
+  canvas: Canvas | null;
+  activeTool: EditorTool;
+};
 
 function colorToHex(input: string | undefined | null): string {
-  if (!input || input === 'transparent') return '#1f2937'
-  if (input.startsWith('#') && (input.length === 4 || input.length === 7)) {
-    return input
+  if (!input || input === "transparent") return "#1f2937";
+  if (input.startsWith("#") && (input.length === 4 || input.length === 7)) {
+    return input;
   }
-  const m = String(input).match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i)
+  const m = String(input).match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
   if (m) {
-    const r = Number(m[1]).toString(16).padStart(2, '0')
-    const g = Number(m[2]).toString(16).padStart(2, '0')
-    const b = Number(m[3]).toString(16).padStart(2, '0')
-    return `#${r}${g}${b}`
+    const r = Number(m[1]).toString(16).padStart(2, "0");
+    const g = Number(m[2]).toString(16).padStart(2, "0");
+    const b = Number(m[3]).toString(16).padStart(2, "0");
+    return `#${r}${g}${b}`;
   }
-  return '#1f2937'
+  return "#1f2937";
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  const h = hex.replace('#', '')
+  const h = hex.replace("#", "");
   if (h.length === 3) {
     return {
       r: parseInt(h[0]! + h[0]!, 16),
       g: parseInt(h[1]! + h[1]!, 16),
       b: parseInt(h[2]! + h[2]!, 16),
-    }
+    };
   }
   if (h.length === 6) {
     return {
       r: parseInt(h.slice(0, 2), 16),
       g: parseInt(h.slice(2, 4), 16),
       b: parseInt(h.slice(4, 6), 16),
-    }
+    };
   }
-  return null
+  return null;
 }
 
 function parseRgbaAlpha(fill: string): number {
   const m = fill.match(
     /rgba?\s*\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(?:,\s*([\d.]+)\s*)?\)/i,
-  )
-  if (!m) return 1
-  return m[1] !== undefined ? Number(m[1]) : 1
+  );
+  if (!m) return 1;
+  return m[1] !== undefined ? Number(m[1]) : 1;
 }
 
 function buildRgbaFromHex(hex: string, alpha: number): string {
-  const rgb = hexToRgb(hex)
-  if (!rgb) return `rgba(255,255,255,${alpha})`
-  const a = Math.min(1, Math.max(0, alpha))
-  return `rgba(${rgb.r},${rgb.g},${rgb.b},${a})`
+  const rgb = hexToRgb(hex);
+  if (!rgb) return `rgba(255,255,255,${alpha})`;
+  const a = Math.min(1, Math.max(0, alpha));
+  return `rgba(${rgb.r},${rgb.g},${rgb.b},${a})`;
 }
 
-type OverlayKind = 'shape' | 'whiteout' | 'annotate-hl' | 'annotate-line'
+type OverlayKind = "shape" | "whiteout" | "annotate-hl" | "annotate-line";
 
 function getOverlayKind(o: FabricObject): OverlayKind | null {
-  if (isWhiteoutObject(o)) return 'whiteout'
-  if (isShapeToolObject(o)) return 'shape'
+  if (isWhiteoutObject(o)) return "whiteout";
+  if (isShapeToolObject(o)) return "shape";
   if (isAnnotateToolObject(o)) {
-    const v = (o as FabricObject & { data?: { variant?: string } }).data?.variant
-    return v === 'highlight' ? 'annotate-hl' : 'annotate-line'
+    const v = (o as FabricObject & { data?: { variant?: string } }).data
+      ?.variant;
+    return v === "highlight" ? "annotate-hl" : "annotate-line";
   }
-  return null
+  return null;
 }
 
 /**
@@ -82,106 +90,143 @@ export function ShapePropertiesToolbar({
   canvas,
   activeTool,
 }: ShapePropertiesToolbarProps) {
-  const toolbarRef = useRef<HTMLDivElement>(null)
-  const [target, setTarget] = useState<FabricObject | null>(null)
-  const [tick, setTick] = useState(0)
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [target, setTarget] = useState<FabricObject | null>(null);
+  const [tick, setTick] = useState(0);
 
   const bump = useCallback(() => {
-    setTick((t) => t + 1)
-  }, [])
+    setTick((t) => t + 1);
+  }, []);
 
   useEffect(() => {
-    if (!canvas || activeTool !== 'select') return
+    if (!canvas || activeTool !== "select") return;
     const sync = () => {
-      const o = canvas.getActiveObject()
-      setTarget(o && isOverlayPropertiesObject(o) ? o : null)
-    }
-    const onCleared = () => setTarget(null)
-    sync()
-    canvas.on('selection:created', sync)
-    canvas.on('selection:updated', sync)
-    canvas.on('selection:cleared', onCleared)
-    canvas.on('object:modified', sync)
+      const o = canvas.getActiveObject();
+      setTarget(o && isOverlayPropertiesObject(o) ? o : null);
+    };
+    const onCleared = () => setTarget(null);
+    sync();
+    canvas.on("selection:created", sync);
+    canvas.on("selection:updated", sync);
+    canvas.on("selection:cleared", onCleared);
+    canvas.on("object:modified", sync);
     return () => {
-      canvas.off('selection:created', sync)
-      canvas.off('selection:updated', sync)
-      canvas.off('selection:cleared', onCleared)
-      canvas.off('object:modified', sync)
-    }
-  }, [canvas, activeTool])
+      canvas.off("selection:created", sync);
+      canvas.off("selection:updated", sync);
+      canvas.off("selection:cleared", onCleared);
+      canvas.off("object:modified", sync);
+    };
+  }, [canvas, activeTool]);
 
   useLayoutEffect(() => {
-    if (!canvas || !target || !toolbarRef.current) return
-    const el = toolbarRef.current
-    const bound = target.getBoundingRect()
-    const br = canvas.upperCanvasEl.getBoundingClientRect()
-    el.style.left = `${br.left + bound.left}px`
-    el.style.top = `${Math.max(8, br.top + bound.top - 44)}px`
-  }, [canvas, target, tick])
+    if (!canvas || !target || !toolbarRef.current) return;
+    const el = toolbarRef.current;
+    const place = () => {
+      const bound = target.getBoundingRect();
+      const br = canvas.upperCanvasEl.getBoundingClientRect();
+
+      const elWidth = el.offsetWidth || 300;
+      const margin = 12;
+
+      let top = br.top + bound.top - 52;
+      if (top < 64) top = br.top + bound.top + bound.height + 12;
+
+      let left = br.left + bound.left + bound.width / 2 - elWidth / 2;
+      if (left < margin) left = margin;
+      if (left + elWidth > window.innerWidth - margin) {
+        left = window.innerWidth - elWidth - margin;
+      }
+
+      el.style.left = `${left}px`;
+      el.style.top = `${top}px`;
+    };
+    place();
+    const raf = requestAnimationFrame(place);
+    return () => cancelAnimationFrame(raf);
+  }, [canvas, target, tick]);
 
   useEffect(() => {
-    if (!canvas || !target) return
-    const onAfter = () => bump()
-    canvas.on('after:render', onAfter)
+    if (!canvas || !target) return;
+    const onAfter = () => bump();
+    canvas.on("after:render", onAfter);
     return () => {
-      canvas.off('after:render', onAfter)
-    }
-  }, [canvas, target, bump])
+      canvas.off("after:render", onAfter);
+    };
+  }, [canvas, target, bump]);
 
   const apply = useCallback(
-    (patch: Partial<{ stroke: string; fill: string; strokeWidth: number; opacity: number }>) => {
-      if (!canvas || !target) return
-      target.set(patch)
-      target.setCoords()
-      canvas.requestRenderAll()
-      bump()
+    (
+      patch: Partial<{
+        stroke: string;
+        fill: string;
+        strokeWidth: number;
+        opacity: number;
+      }>,
+    ) => {
+      if (!canvas || !target) return;
+      target.set(patch);
+      target.setCoords();
+      canvas.requestRenderAll();
+      bump();
     },
     [canvas, target, bump],
-  )
+  );
 
-  if (!target || !canvas || activeTool !== 'select') {
-    return null
+  const onDelete = () => {
+    if (!canvas || !target) return;
+    canvas.remove(target);
+    canvas.discardActiveObject();
+    canvas.requestRenderAll();
+  };
+
+  if (!target || !canvas || activeTool !== "select") {
+    return null;
   }
 
-  const kind = getOverlayKind(target)
-  if (!kind) return null
+  const kind = getOverlayKind(target);
+  if (!kind) return null;
 
   const stroke = colorToHex(
-    typeof target.stroke === 'string' ? target.stroke : undefined,
-  )
-  const fillRaw = target.fill
+    typeof target.stroke === "string" ? target.stroke : undefined,
+  );
+  const fillRaw = target.fill;
   const fillStr =
-    typeof fillRaw === 'string' ? fillRaw : fillRaw == null ? 'transparent' : ''
+    typeof fillRaw === "string"
+      ? fillRaw
+      : fillRaw == null
+        ? "transparent"
+        : "";
   const fillHex =
-    fillStr === '' ||
-    fillStr === 'transparent' ||
-    fillStr.startsWith('rgba') ||
-    fillStr.startsWith('rgb')
-      ? colorToHex(fillStr.startsWith('rgba') || fillStr.startsWith('rgb') ? fillStr : '#ffffff')
-      : colorToHex(fillStr)
+    fillStr === "" ||
+    fillStr === "transparent" ||
+    fillStr.startsWith("rgba") ||
+    fillStr.startsWith("rgb")
+      ? colorToHex(
+          fillStr.startsWith("rgba") || fillStr.startsWith("rgb")
+            ? fillStr
+            : "#ffffff",
+        )
+      : colorToHex(fillStr);
   const fillForPicker =
-    fillStr === 'transparent' || fillStr === ''
-      ? '#ffffff'
-      : fillHex
+    fillStr === "transparent" || fillStr === "" ? "#ffffff" : fillHex;
   const strokeWidth = Math.max(
     0,
-    typeof target.strokeWidth === 'number' ? target.strokeWidth : 0,
-  )
-  const objectOpacity =
-    typeof target.opacity === 'number' ? target.opacity : 1
+    typeof target.strokeWidth === "number" ? target.strokeWidth : 0,
+  );
+  const objectOpacity = typeof target.opacity === "number" ? target.opacity : 1;
   const highlightFillAlpha =
-    kind === 'annotate-hl' && typeof fillStr === 'string'
+    kind === "annotate-hl" && typeof fillStr === "string"
       ? parseRgbaAlpha(fillStr)
-      : 1
+      : 1;
 
   const title =
-    kind === 'whiteout'
-      ? 'Whiteout'
-      : kind === 'shape'
-        ? 'Shape'
-        : kind === 'annotate-hl'
-          ? 'Highlight'
-          : 'Annotation'
+    kind === "whiteout"
+      ? "Whiteout"
+      : kind === "shape"
+        ? "Shape"
+        : kind === "annotate-hl"
+          ? "Highlight"
+          : "Annotation";
 
   return createPortal(
     <div
@@ -192,7 +237,9 @@ export function ShapePropertiesToolbar({
     >
       <span className="text-xs font-medium text-muted">{title}</span>
 
-      {(kind === 'shape' || kind === 'whiteout' || kind === 'annotate-line') && (
+      {(kind === "shape" ||
+        kind === "whiteout" ||
+        kind === "annotate-line") && (
         <label className="flex items-center gap-1">
           <span className="text-muted">Border</span>
           <input
@@ -200,13 +247,13 @@ export function ShapePropertiesToolbar({
             className="h-8 w-10 cursor-pointer rounded border border-ring bg-surface-3 p-0"
             value={stroke}
             onChange={(e) => {
-              apply({ stroke: e.target.value })
+              apply({ stroke: e.target.value });
             }}
           />
         </label>
       )}
 
-      {(kind === 'shape' || kind === 'whiteout' || kind === 'annotate-hl') && (
+      {(kind === "shape" || kind === "whiteout" || kind === "annotate-hl") && (
         <label className="flex items-center gap-1">
           <span className="text-muted">Fill</span>
           <input
@@ -214,19 +261,22 @@ export function ShapePropertiesToolbar({
             className="h-8 w-10 cursor-pointer rounded border border-ring bg-surface-3 p-0"
             value={fillForPicker}
             onChange={(e) => {
-              if (kind === 'annotate-hl') {
-                const next = buildRgbaFromHex(e.target.value, highlightFillAlpha)
-                apply({ fill: next })
+              if (kind === "annotate-hl") {
+                const next = buildRgbaFromHex(
+                  e.target.value,
+                  highlightFillAlpha,
+                );
+                apply({ fill: next });
               } else {
-                apply({ fill: e.target.value })
+                apply({ fill: e.target.value });
               }
             }}
           />
-          {(kind === 'shape' || kind === 'annotate-hl') && (
+          {(kind === "shape" || kind === "annotate-hl") && (
             <button
               type="button"
               className="rounded border border-ring px-1.5 py-0.5 text-xs text-muted hover:bg-surface-3"
-              onClick={() => apply({ fill: 'transparent' })}
+              onClick={() => apply({ fill: "transparent" })}
             >
               None
             </button>
@@ -234,7 +284,7 @@ export function ShapePropertiesToolbar({
         </label>
       )}
 
-      {kind === 'annotate-hl' && (
+      {kind === "annotate-hl" && (
         <label className="flex items-center gap-1">
           <span className="text-muted">Fill α</span>
           <input
@@ -244,15 +294,17 @@ export function ShapePropertiesToolbar({
             className="w-24"
             value={Math.round(highlightFillAlpha * 100)}
             onChange={(e) => {
-              const a = Number(e.target.value) / 100
-              const next = buildRgbaFromHex(fillForPicker, a)
-              apply({ fill: next })
+              const a = Number(e.target.value) / 100;
+              const next = buildRgbaFromHex(fillForPicker, a);
+              apply({ fill: next });
             }}
           />
         </label>
       )}
 
-      {(kind === 'shape' || kind === 'whiteout' || kind === 'annotate-line') && (
+      {(kind === "shape" ||
+        kind === "whiteout" ||
+        kind === "annotate-line") && (
         <label className="flex items-center gap-1">
           <span className="text-muted">Width</span>
           <input
@@ -262,15 +314,15 @@ export function ShapePropertiesToolbar({
             className="w-14 rounded border border-ring bg-surface-3 px-1 py-1 text-text"
             value={Math.round(strokeWidth)}
             onChange={(e) => {
-              const n = Number(e.target.value)
-              if (!Number.isFinite(n)) return
-              apply({ strokeWidth: Math.max(0, n) })
+              const n = Number(e.target.value);
+              if (!Number.isFinite(n)) return;
+              apply({ strokeWidth: Math.max(0, n) });
             }}
           />
         </label>
       )}
 
-      {kind === 'whiteout' && (
+      {kind === "whiteout" && (
         <label className="flex items-center gap-1">
           <span className="text-muted">Opacity</span>
           <input
@@ -280,13 +332,23 @@ export function ShapePropertiesToolbar({
             className="w-24"
             value={Math.round(objectOpacity * 100)}
             onChange={(e) => {
-              const n = Number(e.target.value) / 100
-              apply({ opacity: Math.min(1, Math.max(0, n)) })
+              const n = Number(e.target.value) / 100;
+              apply({ opacity: Math.min(1, Math.max(0, n)) });
             }}
           />
         </label>
       )}
+      <div className="h-4 w-px bg-border mx-1" />
+
+      <button
+        type="button"
+        onClick={onDelete}
+        className="flex h-8 w-8 items-center justify-center rounded border border-destructive/30 text-destructive hover:bg-destructive/10"
+        title="Delete"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
     </div>,
     document.body,
-  )
+  );
 }

@@ -568,13 +568,21 @@ export function EditorShell({ children }: EditorShellProps) {
             </div>
 
             <div className="flex items-center gap-0.5 rounded-lg border border-border bg-surface-alt p-1">
-              <TbBtn onClick={zoomOut} title="Zoom out">
+              <TbBtn
+                onClick={zoomOut}
+                title="Zoom out"
+                disabled={zoomLevel <= 0.5}
+              >
                 <ZoomOut className="h-3.5 w-3.5" />
               </TbBtn>
               <span className="min-w-[44px] text-center text-[12px] font-medium text-text">
                 {Math.round(zoomLevel * 100)}%
               </span>
-              <TbBtn onClick={zoomIn} title="Zoom in">
+              <TbBtn
+                onClick={zoomIn}
+                title="Zoom in"
+                disabled={zoomLevel >= 1.0}
+              >
                 <ZoomIn className="h-3.5 w-3.5" />
               </TbBtn>
             </div>

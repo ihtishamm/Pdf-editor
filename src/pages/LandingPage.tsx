@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Sun, Moon } from "lucide-react";
 import { usePdfEditorStore } from "../store/pdfEditorStore";
 
@@ -47,6 +47,30 @@ function Reveal({
 }
 
 /* ===================================================================
+   Shared PDF Upload Hook
+   =================================================================== */
+
+function usePdfUpload() {
+  const navigate = useNavigate();
+  const loadFile = usePdfEditorStore((s) => s.loadFile);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type === "application/pdf") {
+      await loadFile(file);
+      navigate("/editor");
+    }
+  };
+
+  return { fileInputRef, handleUploadClick, handleFileChange };
+}
+
+/* ===================================================================
    Custom Cursor (desktop only)
    =================================================================== */
 
@@ -91,6 +115,7 @@ function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const theme = usePdfEditorStore((s) => s.theme);
   const toggleTheme = usePdfEditorStore((s) => s.toggleTheme);
+  const { fileInputRef, handleUploadClick, handleFileChange } = usePdfUpload();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -106,6 +131,13 @@ function Navbar() {
           : ""
       }`}
     >
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept=".pdf"
+        className="hidden"
+      />
       <Link to="/" className="flex items-center gap-2.5">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-display text-sm font-extrabold text-white">
           P
@@ -141,12 +173,12 @@ function Navbar() {
             <Sun className="h-4 w-4" />
           )}
         </button>
-        <Link
-          to="/editor"
+        <button
+          onClick={handleUploadClick}
           className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white transition-all hover:-translate-y-px hover:bg-primary-hover"
         >
           Start for free →
-        </Link>
+        </button>
       </div>
     </nav>
   );
@@ -245,8 +277,17 @@ function MockupBrowser() {
    =================================================================== */
 
 function HeroSection() {
+  const { fileInputRef, handleUploadClick, handleFileChange } = usePdfUpload();
+
   return (
     <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pb-20 pt-[120px] text-center">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept=".pdf"
+        className="hidden"
+      />
       <div className="absolute inset-0 z-0">
         <div className="hero-grid-bg absolute inset-0" />
         <div className="hero-glow absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
@@ -272,14 +313,15 @@ function HeroSection() {
         </p>
 
         <div className="mt-12 flex animate-fade-up-d3 flex-col items-center justify-center gap-4">
-          <Link to="/editor">
-            <button className="relative overflow-hidden rounded-[10px] bg-primary px-12 py-4 text-lg font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_60px_rgba(255,77,46,0.35)]">
-              <span className="absolute inset-0 bg-linear-to-br from-white/15 to-transparent" />
-              <span className="relative flex items-center gap-2">
-                <span className="text-xl">⬆</span> Upload PDF
-              </span>
-            </button>
-          </Link>
+          <button
+            onClick={handleUploadClick}
+            className="relative overflow-hidden rounded-[10px] bg-primary px-12 py-4 text-lg font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_60px_rgba(255,77,46,0.35)]"
+          >
+            <span className="absolute inset-0 bg-linear-to-br from-white/15 to-transparent" />
+            <span className="relative flex items-center gap-2">
+              <span className="text-xl">⬆</span> Upload PDF
+            </span>
+          </button>
           <Link to="/editor?action=blank">
             <button className="text-sm font-medium text-muted transition-all hover:text-text border-b border-transparent hover:border-muted pb-0.5">
               or start with blank page
@@ -575,9 +617,17 @@ const STEPS = [
 
 function HowItWorks() {
   const [activeStep, setActiveStep] = useState(0);
+  const { fileInputRef, handleUploadClick, handleFileChange } = usePdfUpload();
 
   return (
     <section id="how" className="border-t border-border bg-surface">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept=".pdf"
+        className="hidden"
+      />
       <div className="mx-auto max-w-[1280px] px-6 py-[120px] md:px-12">
         <Reveal>
           <div className="mb-4 text-xs font-medium uppercase tracking-[2px] text-primary">
@@ -633,11 +683,12 @@ function HowItWorks() {
                 <div className="mt-4 text-[13px] text-placeholder">
                   or click to browse files
                 </div>
-                <Link to="/editor">
-                  <button className="mt-6 rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white transition-all hover:-translate-y-px hover:bg-primary-hover">
-                    Upload PDF
-                  </button>
-                </Link>
+                <button
+                  onClick={handleUploadClick}
+                  className="mt-6 rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white transition-all hover:-translate-y-px hover:bg-primary-hover"
+                >
+                  Upload PDF
+                </button>
               </div>
             </div>
           </div>
@@ -731,8 +782,17 @@ function TestimonialsSection() {
    =================================================================== */
 
 function PricingSection() {
+  const { fileInputRef, handleUploadClick, handleFileChange } = usePdfUpload();
+
   return (
     <section id="pricing">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept=".pdf"
+        className="hidden"
+      />
       <div className="mx-auto max-w-[1280px] px-6 py-[120px] md:px-12">
         <Reveal>
           <div className="text-center">
@@ -765,12 +825,13 @@ function PricingSection() {
               donations and a Pro API for developers. The core editor will
               always be free.
             </p>
-            <Link to="/editor">
-              <button className="relative mt-8 overflow-hidden rounded-[10px] bg-primary px-9 py-4 text-base font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_60px_rgba(255,77,46,0.35)]">
-                <span className="absolute inset-0 bg-linear-to-br from-white/15 to-transparent" />
-                <span className="relative">Upload PDF →</span>
-              </button>
-            </Link>
+            <button
+              onClick={handleUploadClick}
+              className="relative mt-8 overflow-hidden rounded-[10px] bg-primary px-9 py-4 text-base font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_60px_rgba(255,77,46,0.35)]"
+            >
+              <span className="absolute inset-0 bg-linear-to-br from-white/15 to-transparent" />
+              <span className="relative">Upload PDF →</span>
+            </button>
           </div>
         </Reveal>
       </div>
@@ -783,8 +844,17 @@ function PricingSection() {
    =================================================================== */
 
 function CTASection() {
+  const { fileInputRef, handleUploadClick, handleFileChange } = usePdfUpload();
+
   return (
     <section className="relative overflow-hidden px-6 py-[120px] text-center md:px-12">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept=".pdf"
+        className="hidden"
+      />
       <div className="cta-glow-bg pointer-events-none absolute left-1/2 top-1/2 h-[400px] w-[600px] -translate-x-1/2 -translate-y-1/2" />
       <div className="relative z-10">
         <div className="mb-5 inline-block rounded-full border border-green/20 bg-green/10 px-3.5 py-1.5 text-[13px] font-medium uppercase tracking-[1px] text-green">
@@ -798,12 +868,13 @@ function CTASection() {
         <p className="mt-6 text-lg font-light text-muted">
           Everything you need. Free. In your browser. Right now.
         </p>
-        <Link to="/editor">
-          <button className="relative mt-12 overflow-hidden rounded-[10px] bg-primary px-11 py-[18px] text-[17px] font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_60px_rgba(255,77,46,0.35)]">
-            <span className="absolute inset-0 bg-linear-to-br from-white/15 to-transparent" />
-            <span className="relative">Upload PDF — it's free →</span>
-          </button>
-        </Link>
+        <button
+          onClick={handleUploadClick}
+          className="relative mt-12 overflow-hidden rounded-[10px] bg-primary px-11 py-[18px] text-[17px] font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_60px_rgba(255,77,46,0.35)]"
+        >
+          <span className="absolute inset-0 bg-linear-to-br from-white/15 to-transparent" />
+          <span className="relative">Upload PDF — it's free →</span>
+        </button>
       </div>
     </section>
   );

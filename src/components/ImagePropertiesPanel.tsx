@@ -1,147 +1,202 @@
-import { Canvas, FabricImage } from 'fabric'
-import { useCallback, useEffect, useState } from 'react'
-import { ArrowDown, ArrowUp, FlipHorizontal2, FlipVertical2 } from 'lucide-react'
-import { isPlacedFabricImage } from '../lib/insertFabricImage'
-import { usePdfEditorStore } from '../store/pdfEditorStore'
-import type { EditorTool } from '../types/editorTools'
+import { Canvas, FabricImage } from "fabric";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+import {
+  ArrowDown,
+  ArrowUp,
+  FlipHorizontal2,
+  FlipVertical2,
+  Trash2,
+} from "lucide-react";
+import { isPlacedFabricImage } from "../lib/insertFabricImage";
+import type { EditorTool } from "../types/editorTools";
 
 type ImagePropertiesPanelProps = {
-  canvas: Canvas | null
-  activeTool: EditorTool
-}
+  canvas: Canvas | null;
+  activeTool: EditorTool;
+};
 
 export function ImagePropertiesPanel({
   canvas,
   activeTool,
 }: ImagePropertiesPanelProps) {
-  const commentPanelOpen = usePdfEditorStore((s) => s.commentPanelOpen)
-  const [target, setTarget] = useState<FabricImage | null>(null)
-  const [tick, setTick] = useState(0)
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [target, setTarget] = useState<FabricImage | null>(null);
+  const [tick, setTick] = useState(0);
 
-  const bump = useCallback(() => setTick((t) => t + 1), [])
+  const bump = useCallback(() => setTick((t) => t + 1), []);
 
   useEffect(() => {
-    if (!canvas || activeTool !== 'select') return
+    if (!canvas || activeTool !== "select") return;
     const sync = () => {
-      const o = canvas.getActiveObject()
-      setTarget(o && isPlacedFabricImage(o) ? o : null)
-    }
-    const onCleared = () => setTarget(null)
-    sync()
-    canvas.on('selection:created', sync)
-    canvas.on('selection:updated', sync)
-    canvas.on('selection:cleared', onCleared)
-    canvas.on('object:modified', sync)
+      const o = canvas.getActiveObject();
+      setTarget(o && isPlacedFabricImage(o) ? o : null);
+      bump();
+    };
+    const onCleared = () => setTarget(null);
+    sync();
+    canvas.on("selection:created", sync);
+    canvas.on("selection:updated", sync);
+    canvas.on("selection:cleared", onCleared);
+    canvas.on("object:modified", sync);
     return () => {
-      canvas.off('selection:created', sync)
-      canvas.off('selection:updated', sync)
-      canvas.off('selection:cleared', onCleared)
-      canvas.off('object:modified', sync)
-    }
-  }, [canvas, activeTool])
+      canvas.off("selection:created", sync);
+      canvas.off("selection:updated", sync);
+      canvas.off("selection:cleared", onCleared);
+      canvas.off("object:modified", sync);
+    };
+  }, [canvas, activeTool, bump]);
+
+  useLayoutEffect(() => {
+    if (!canvas || !target || !toolbarRef.current) return;
+    const el = toolbarRef.current;
+    const bound = target.getBoundingRect();
+    const br = canvas.upperCanvasEl.getBoundingClientRect();
+    el.style.left = `${br.left + bound.left}px`;
+    el.style.top = `${Math.max(8, br.top + bound.top - 48)}px`;
+  }, [canvas, target, tick]);
+
+  useEffect(() => {
+    if (!canvas || !target) return;
+    const onAfter = () => bump();
+    canvas.on("after:render", onAfter);
+    return () => {
+      canvas.off("after:render", onAfter);
+    };
+  }, [canvas, target, bump]);
 
   const apply = useCallback(
     (fn: (img: FabricImage) => void) => {
-      if (!canvas || !target) return
-      fn(target)
-      target.setCoords()
-      canvas.requestRenderAll()
-      bump()
+      if (!canvas || !target) return;
+      fn(target);
+      target.setCoords();
+      canvas.requestRenderAll();
+      bump();
     },
     [canvas, target, bump],
-  )
+  );
 
-  if (!canvas || !target || activeTool !== 'select') {
-    return null
+  const onDelete = () => {
+    if (!canvas || !target) return;
+    canvas.remove(target);
+    canvas.discardActiveObject();
+    canvas.requestRenderAll();
+    setTarget(null);
+  };
+
+  if (!canvas || !target || activeTool !== "select") {
+    return null;
   }
 
-  const opacity = typeof target.opacity === 'number' ? target.opacity : 1
-  const flipX = !!target.flipX
-  const flipY = !!target.flipY
+  const opacity = typeof target.opacity === "number" ? target.opacity : 1;
+  const flipX = !!target.flipX;
+  const flipY = !!target.flipY;
 
-  return (
-    <aside
-      data-rerender={tick}
-      className={`fixed top-24 z-[95] w-[min(100vw-16px,280px)] rounded-lg border border-ring bg-surface-alt p-4 shadow-elevated ${
-        commentPanelOpen ? 'right-[min(360px,92vw)] max-md:right-2' : 'right-2'
-      }`}
-      aria-label="Image properties"
+  return createPortal(
+    <div
+      ref={toolbarRef}
+      className="fixed z-100 flex max-w-[min(100vw-16px,520px)] flex-wrap items-center gap-2 rounded-lg border border-ring bg-surface-alt px-2.5 py-1.5 text-sm shadow-elevated"
+      role="toolbar"
+      aria-label="Image operations"
     >
-      <h3 className="mb-3 text-sm font-semibold text-text">Image</h3>
-      <label className="mb-4 block text-xs text-muted">
-        Opacity
+      <div className="flex items-center gap-1.5 px-1">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-muted">
+          Image
+        </span>
+      </div>
+
+      <div className="h-4 w-px bg-border" />
+
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          className={`flex h-8 w-8 items-center justify-center rounded border border-ring transition-colors ${
+            flipX
+              ? "bg-primary/10 text-primary border-primary/30"
+              : "bg-surface-3 text-muted hover:bg-surface-alt hover:text-text"
+          }`}
+          title="Flip Horizontal"
+          onClick={() => apply((img) => img.set({ flipX: !img.flipX }))}
+        >
+          <FlipHorizontal2 className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          className={`flex h-8 w-8 items-center justify-center rounded border border-ring transition-colors ${
+            flipY
+              ? "bg-primary/10 text-primary border-primary/30"
+              : "bg-surface-3 text-muted hover:bg-surface-alt hover:text-text"
+          }`}
+          title="Flip Vertical"
+          onClick={() => apply((img) => img.set({ flipY: !img.flipY }))}
+        >
+          <FlipVertical2 className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="h-4 w-px bg-border" />
+
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          className="flex h-8 w-8 items-center justify-center rounded border border-ring bg-surface-3 text-muted transition-colors hover:bg-surface-alt hover:text-text"
+          title="Bring Forward"
+          onClick={() => {
+            canvas.bringObjectForward(target);
+            canvas.requestRenderAll();
+            bump();
+          }}
+        >
+          <ArrowUp className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          className="flex h-8 w-8 items-center justify-center rounded border border-ring bg-surface-3 text-muted transition-colors hover:bg-surface-alt hover:text-text"
+          title="Send Backward"
+          onClick={() => {
+            canvas.sendObjectBackwards(target);
+            canvas.requestRenderAll();
+            bump();
+          }}
+        >
+          <ArrowDown className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="h-4 w-px bg-border" />
+
+      <label className="flex items-center gap-2 px-1">
+        <span className="text-[11px] text-muted">Opacity</span>
         <input
           type="range"
           min={0}
           max={100}
-          className="mt-1 block w-full"
+          className="h-1.5 w-16 accent-primary"
           value={Math.round(opacity * 100)}
           onChange={(e) => {
-            const v = Number(e.target.value) / 100
-            apply((img) => img.set({ opacity: Math.min(1, Math.max(0, v)) }))
+            const v = Number(e.target.value) / 100;
+            apply((img) => img.set({ opacity: Math.min(1, Math.max(0, v)) }));
           }}
         />
       </label>
-      <div className="mb-4 flex flex-wrap gap-2">
-        <button
-          type="button"
-          className={`rounded border px-2 py-1.5 text-xs ${
-            flipX ? 'border-primary/50 bg-primary/10 text-primary' : 'border-ring bg-surface-3 text-muted'
-          }`}
-          aria-pressed={flipX}
-          onClick={() => {
-            apply((img) => img.set({ flipX: !img.flipX }))
-          }}
-        >
-          <FlipHorizontal2 className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
-          Flip H
-        </button>
-        <button
-          type="button"
-          className={`rounded border px-2 py-1.5 text-xs ${
-            flipY ? 'border-primary/50 bg-primary/10 text-primary' : 'border-ring bg-surface-3 text-muted'
-          }`}
-          aria-pressed={flipY}
-          onClick={() => {
-            apply((img) => img.set({ flipY: !img.flipY }))
-          }}
-        >
-          <FlipVertical2 className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
-          Flip V
-        </button>
-      </div>
-      <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          className="flex items-center justify-center gap-1 rounded border border-ring bg-surface-3 px-2 py-2 text-xs text-muted hover:bg-surface-3/80"
-          onClick={() => {
-            if (!canvas || !target) return
-            canvas.bringObjectForward(target)
-            canvas.requestRenderAll()
-            bump()
-          }}
-        >
-          <ArrowUp className="h-3.5 w-3.5" />
-          Bring forward
-        </button>
-        <button
-          type="button"
-          className="flex items-center justify-center gap-1 rounded border border-ring bg-surface-3 px-2 py-2 text-xs text-muted hover:bg-surface-3/80"
-          onClick={() => {
-            if (!canvas || !target) return
-            canvas.sendObjectBackwards(target)
-            canvas.requestRenderAll()
-            bump()
-          }}
-        >
-          <ArrowDown className="h-3.5 w-3.5" />
-          Send backward
-        </button>
-      </div>
-      <p className="mt-3 text-[10px] leading-snug text-placeholder">
-        Hold Shift while resizing a corner to lock aspect ratio (Fabric {''}
-        default).
-      </p>
-    </aside>
-  )
+
+      <div className="h-4 w-px bg-border" />
+
+      <button
+        type="button"
+        onClick={onDelete}
+        className="flex h-8 w-8 items-center justify-center rounded border border-destructive/30 text-destructive hover:bg-destructive/10"
+        title="Delete Image"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>,
+    document.body,
+  );
 }

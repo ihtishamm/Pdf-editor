@@ -304,7 +304,7 @@ export function attachFabricCanvasTools(
       const t = new IText("Type here", {
         left: x,
         top: y,
-        fontSize: 16,
+        fontSize: 24,
         fill: "#111827",
         fontFamily: "sans-serif",
         editable: true,

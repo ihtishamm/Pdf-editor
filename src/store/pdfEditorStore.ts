@@ -22,7 +22,7 @@ import type { PdfNativeTextRunState } from "../types/pdfNativeText";
 
 const MIN_ZOOM = 0.5;
 const MAX_HISTORY_ENTRIES = 50;
-const MAX_ZOOM = 3;
+const MAX_ZOOM = 1.0;
 const ZOOM_STEP = 0.1;
 
 export type {
