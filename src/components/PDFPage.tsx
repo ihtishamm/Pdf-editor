@@ -23,6 +23,7 @@ import { attachFabricHistoryToCanvas } from "../lib/attachFabricHistoryToCanvas"
 import { fabricHistoryRuntime } from "../lib/fabricHistoryRuntime";
 import { markFabricHistoryUser } from "../lib/fabricHistoryHelpers";
 import { addPdfLinksToCanvas, createFabricPdfLink } from "../lib/fabricPdfLink";
+import { LinkPropertiesPopover } from "./LinkPropertiesPopover";
 import {
   applyPageOverlayToCanvas,
   capturePageOverlay,
@@ -62,6 +63,10 @@ export function PDFPage({
   const enqueueImageInsert = usePdfEditorStore((s) => s.enqueueImageInsert);
   const setActiveTool = usePdfEditorStore((s) => s.setActiveTool);
   const currentPage = usePdfEditorStore((s) => s.currentPage);
+  const pendingSignature = usePdfEditorStore((s) => s.pendingSignature);
+  const clearPendingSignatureDataUrl = usePdfEditorStore(
+    (s) => s.clearPendingSignatureDataUrl,
+  );
 
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -318,10 +323,12 @@ export function PDFPage({
             );
             fabricCanvas.add(linkRect);
             fabricCanvas.bringObjectToFront(linkRect);
+            fabricCanvas.setActiveObject(linkRect);
+            s.setSelectedPdfLinkId(entry.id);
             fabricCanvas.requestRenderAll();
           },
-          onLinkClicked: () => {
-            // Links handled via separate logic or store if needed
+          onLinkClicked: (id) => {
+            store().setSelectedPdfLinkId(id);
           },
           onPdfLinkGeometryCommit: () => {
             // Geometry updated in store
@@ -447,6 +454,30 @@ export function PDFPage({
     setActiveTool,
   ]);
 
+  useEffect(() => {
+    if (currentPage === pageNum && pendingSignature && overlayCanvas) {
+      const { dataUrl } = pendingSignature;
+      clearPendingSignatureDataUrl();
+      void (async () => {
+        try {
+          const { addFabricImageFromDataUrl } =
+            await import("../lib/insertFabricImage");
+          await addFabricImageFromDataUrl(overlayCanvas, dataUrl, "Signature");
+          setActiveTool("select");
+        } catch (err) {
+          console.error("[PDFPage] signature insert failed", err);
+        }
+      })();
+    }
+  }, [
+    currentPage,
+    pageNum,
+    pendingSignature,
+    overlayCanvas,
+    clearPendingSignatureDataUrl,
+    setActiveTool,
+  ]);
+
   return (
     <div
       ref={pageRef}
@@ -484,6 +515,7 @@ export function PDFPage({
           className="absolute inset-0 z-20"
           aria-hidden
         />
+        <LinkPropertiesPopover canvas={overlayCanvas} activeTool={activeTool} />
       </div>
     </div>
   );

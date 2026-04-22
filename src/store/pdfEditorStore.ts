@@ -52,6 +52,7 @@ export type PdfEditorState = {
   selectedFormFieldId: string | null;
   /** Hyperlink regions (normalized geometry); Fabric rects reference `data.linkId`. */
   pdfLinks: PdfLinkEntry[];
+  selectedPdfLinkId: string | null;
   comments: CommentEntry[];
   /** Comment id open in sidebar (new or existing). */
   activeCommentId: string | null;
@@ -117,6 +118,10 @@ export type PdfEditorActions = {
     >,
   ) => void;
   removePdfLink: (id: string) => void;
+  setSelectedPdfLinkId: (
+    id: string | null,
+    anchor?: { x: number; y: number } | null,
+  ) => void;
   addCommentAt: (page: number, sceneX: number, sceneY: number) => string;
   updateCommentBody: (id: string, body: string) => void;
   removeComment: (id: string) => void;
@@ -213,7 +218,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
     pdfFileName: "",
     currentPage: 1,
     totalPages: 0,
-    zoomLevel: 1,
+    zoomLevel: 0.7,
     activeTool: "select",
     shapeVariant: "rectangle",
     annotateVariant: "highlight",
@@ -221,6 +226,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
     formFields: [],
     selectedFormFieldId: null,
     pdfLinks: [],
+    selectedPdfLinkId: null,
     comments: [],
     activeCommentId: null,
     commentPanelOpen: false,
@@ -262,7 +268,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         currentPage:
           get().currentPage > pdf.numPages ? pdf.numPages : get().currentPage,
         fabricByPage: new Map(),
-        zoomLevel: get().zoomLevel || 1,
+        zoomLevel: get().zoomLevel || 0.7,
         activeTool: "select",
         exportedBlobUrl: null,
         exportedBytes: null,
@@ -278,6 +284,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
           formFields: [],
           selectedFormFieldId: null,
           pdfLinks: [],
+          selectedPdfLinkId: null,
           comments: [],
           activeCommentId: null,
           commentPanelOpen: false,
@@ -415,8 +422,12 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
     removePdfLink: (id) => {
       set((s) => ({
         pdfLinks: s.pdfLinks.filter((l) => l.id !== id),
+        selectedPdfLinkId:
+          s.selectedPdfLinkId === id ? null : s.selectedPdfLinkId,
       }));
     },
+
+    setSelectedPdfLinkId: (id) => set({ selectedPdfLinkId: id }),
 
     addCommentAt: (page, sceneX, sceneY) => {
       const id = newCommentId();
@@ -718,7 +729,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         pdfFileName: "",
         currentPage: 1,
         totalPages: 0,
-        zoomLevel: 1,
+        zoomLevel: 0.7,
         activeTool: "select",
         shapeVariant: "rectangle",
         annotateVariant: "highlight",
@@ -726,6 +737,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         formFields: [],
         selectedFormFieldId: null,
         pdfLinks: [],
+        selectedPdfLinkId: null,
         comments: [],
         activeCommentId: null,
         commentPanelOpen: false,

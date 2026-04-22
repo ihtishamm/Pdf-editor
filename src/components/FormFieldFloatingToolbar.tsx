@@ -8,7 +8,11 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { getFormFieldId, isFormFieldObject } from "../lib/fabricFormField";
+import {
+  getFormFieldId,
+  isFormFieldObject,
+  refreshFabricFormField,
+} from "../lib/fabricFormField";
 import { usePdfEditorStore } from "../store/pdfEditorStore";
 import type { EditorTool } from "../types/editorTools";
 import type { FormFieldMeta } from "../types/formFields";
@@ -69,7 +73,7 @@ export function FormFieldFloatingToolbar({
       const elWidth = el.offsetWidth || 500;
       const margin = 12;
 
-      let top = br.top + bound.top - 56;
+      let top = br.top + bound.top - 68;
       if (top < 64) top = br.top + bound.top + bound.height + 12;
 
       let left = br.left + bound.left + bound.width / 2 - elWidth / 2;
@@ -100,11 +104,14 @@ export function FormFieldFloatingToolbar({
 
   const onPatch = useCallback(
     (patch: Parameters<typeof updateFormField>[1]) => {
-      if (!fieldId) return;
+      if (!fieldId || !meta) return;
       updateFormField(fieldId, patch);
+      if (canvas) {
+        refreshFabricFormField(canvas, { ...meta, ...patch } as FormFieldMeta);
+      }
       bump();
     },
-    [fieldId, updateFormField, bump],
+    [fieldId, meta, canvas, updateFormField, bump],
   );
 
   const onDelete = useCallback(() => {
