@@ -152,6 +152,7 @@ export function EditorShell({ children }: EditorShellProps) {
   const deletePage = usePdfEditorStore((s) => s.deletePage);
   const theme = usePdfEditorStore((s) => s.theme);
   const toggleTheme = usePdfEditorStore((s) => s.toggleTheme);
+  const maskedRegions = usePdfEditorStore((s) => s.maskedRegions);
 
   const [signModalOpen, setSignModalOpen] = useState(false);
   const [undoHistoryOpen, setUndoHistoryOpen] = useState(false);
@@ -179,6 +180,7 @@ export function EditorShell({ children }: EditorShellProps) {
           baseFileName: pdfFileName || "document.pdf",
           pageOverlaySnapshots,
           pdfNativeTextByPage,
+          maskedRegions,
         });
         const url = URL.createObjectURL(out.blob);
         setExportResult(url, out.bytes, out.filename);

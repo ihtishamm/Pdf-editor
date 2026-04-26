@@ -18,7 +18,10 @@ import type {
   ShapeVariant,
 } from "../types/editorTools";
 import type { PageOverlaySnapshot } from "../lib/pageOverlaySnapshot";
-import type { PdfNativeTextRunState } from "../types/pdfNativeText";
+import type {
+  PdfNativeTextOriginalBounds,
+  PdfNativeTextRunState,
+} from "../types/pdfNativeText";
 
 const MIN_ZOOM = 0.5;
 const MAX_HISTORY_ENTRIES = 50;
@@ -83,6 +86,10 @@ export type PdfEditorState = {
   currentView: EditorMainView;
   toastMessage: string | null;
   theme: Theme;
+  maskedRegions: Map<
+    number,
+    { bounds: PdfNativeTextOriginalBounds; fill: string }[]
+  >;
 };
 
 export type PdfEditorActions = {
@@ -137,6 +144,16 @@ export type PdfEditorActions = {
     page: number,
     runId: string,
     state: PdfNativeTextRunState,
+  ) => void;
+  removePdfNativeTextRun: (page: number, runId: string) => void;
+  addMaskedRegion: (
+    page: number,
+    bounds: PdfNativeTextOriginalBounds,
+    fill: string,
+  ) => void;
+  removeMaskedRegion: (
+    page: number,
+    bounds: PdfNativeTextOriginalBounds,
   ) => void;
   disposeFabric: (page: number) => Promise<void>;
   unregisterFabricPage: (page: number) => void;
@@ -244,6 +261,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
     currentView: "editor",
     toastMessage: null,
     theme: "light",
+    maskedRegions: new Map(),
 
     loadPdfFromBytes: async (data, fileName, options = {}) => {
       const prev = get().pdf;
@@ -283,6 +301,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
           pdfNativeTextByPage: new Map(),
           formFields: [],
           selectedFormFieldId: null,
+          maskedRegions: new Map(),
           pdfLinks: [],
           selectedPdfLinkId: null,
           comments: [],
@@ -500,6 +519,40 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         inner.set(runId, { ...state });
         outer.set(page, inner);
         return { pdfNativeTextByPage: outer };
+      });
+    },
+
+    removePdfNativeTextRun: (page, runId) => {
+      set((s) => {
+        const outer = new Map(s.pdfNativeTextByPage);
+        const inner = new Map(outer.get(page) ?? new Map());
+        inner.delete(runId);
+        outer.set(page, inner);
+        return { pdfNativeTextByPage: outer };
+      });
+    },
+
+    addMaskedRegion: (page, bounds, fill) => {
+      set((s) => {
+        const next = new Map(s.maskedRegions);
+        const prev = next.get(page) ?? [];
+        next.set(page, [...prev, { bounds, fill }]);
+        return { maskedRegions: next };
+      });
+    },
+
+    removeMaskedRegion: (page, bounds) => {
+      set((s) => {
+        const next = new Map(s.maskedRegions);
+        const prev = next.get(page) ?? [];
+        next.set(
+          page,
+          prev.filter(
+            (m) =>
+              m.bounds.minX !== bounds.minX || m.bounds.minY !== bounds.minY,
+          ),
+        );
+        return { maskedRegions: next };
       });
     },
 
@@ -755,6 +808,7 @@ export const usePdfEditorStore = create<PdfEditorState & PdfEditorActions>(
         currentView: "editor",
         toastMessage: null,
         theme: "light",
+        maskedRegions: new Map(),
       });
       document.documentElement.classList.remove("dark");
     },

@@ -1,37 +1,44 @@
-import type { Canvas } from 'fabric'
-import { PDFDocument } from 'pdf-lib'
-import { applyAcroFormFieldsAndLinks } from './pdfFormExport'
+import type { Canvas } from "fabric";
+import { PDFDocument } from "pdf-lib";
+import { applyAcroFormFieldsAndLinks } from "./pdfFormExport";
 import {
   drawFabricOverlaysOnPdfPages,
   embedStandardFabricFonts,
-} from './pdfExportFabricOverlays'
-import type { FormFieldMeta } from '../types/formFields'
-import type { PdfLinkEntry } from '../types/pdfLinks'
-import type { PageOverlaySnapshot } from './pageOverlaySnapshot'
-import type { PdfNativeTextRunState } from '../types/pdfNativeText'
-import { isLikelyPdfBytes } from './isLikelyPdfBytes'
+} from "./pdfExportFabricOverlays";
+import type { FormFieldMeta } from "../types/formFields";
+import type { PdfLinkEntry } from "../types/pdfLinks";
+import type { PageOverlaySnapshot } from "./pageOverlaySnapshot";
+import type {
+  PdfNativeTextOriginalBounds,
+  PdfNativeTextRunState,
+} from "../types/pdfNativeText";
+import { isLikelyPdfBytes } from "./isLikelyPdfBytes";
 
 export type ExportPdfPipelineResult = {
-  bytes: Uint8Array
-  blob: Blob
-  filename: string
-}
+  bytes: Uint8Array;
+  blob: Blob;
+  filename: string;
+};
 
-export { isLikelyPdfBytes } from './isLikelyPdfBytes'
+export { isLikelyPdfBytes } from "./isLikelyPdfBytes";
 
 /**
  * Full export: vector overlays from Fabric (per-page canvases in map), then AcroForm + link annotations.
  * Does not rasterize the overlay canvas as a single image.
  */
 export async function runFullPdfExport(params: {
-  originalFileBytes: Uint8Array
-  fabricByPage: Map<number, Canvas>
-  pageCount: number
-  formFields: FormFieldMeta[]
-  pdfLinks: PdfLinkEntry[]
-  baseFileName: string
-  pageOverlaySnapshots?: Map<number, PageOverlaySnapshot>
-  pdfNativeTextByPage?: Map<number, Map<string, PdfNativeTextRunState>>
+  originalFileBytes: Uint8Array;
+  fabricByPage: Map<number, Canvas>;
+  pageCount: number;
+  formFields: FormFieldMeta[];
+  pdfLinks: PdfLinkEntry[];
+  baseFileName: string;
+  pageOverlaySnapshots?: Map<number, PageOverlaySnapshot>;
+  pdfNativeTextByPage?: Map<number, Map<string, PdfNativeTextRunState>>;
+  maskedRegions?: Map<
+    number,
+    { bounds: PdfNativeTextOriginalBounds; fill: string }[]
+  >;
 }): Promise<ExportPdfPipelineResult> {
   const {
     originalFileBytes,
@@ -42,17 +49,18 @@ export async function runFullPdfExport(params: {
     baseFileName,
     pageOverlaySnapshots,
     pdfNativeTextByPage,
-  } = params
+    maskedRegions,
+  } = params;
 
   if (!isLikelyPdfBytes(originalFileBytes)) {
-    throw new Error('Invalid or empty PDF bytes (missing %PDF- header).')
+    throw new Error("Invalid or empty PDF bytes (missing %PDF- header).");
   }
 
   const pdfDoc = await PDFDocument.load(originalFileBytes, {
     ignoreEncryption: true,
-  })
+  });
 
-  const fonts = await embedStandardFabricFonts(pdfDoc)
+  const fonts = await embedStandardFabricFonts(pdfDoc);
   await drawFabricOverlaysOnPdfPages(
     pdfDoc,
     fabricByPage,
@@ -60,13 +68,14 @@ export async function runFullPdfExport(params: {
     fonts,
     pageOverlaySnapshots,
     pdfNativeTextByPage,
-  )
-  await applyAcroFormFieldsAndLinks(pdfDoc, formFields, pdfLinks)
+    maskedRegions,
+  );
+  await applyAcroFormFieldsAndLinks(pdfDoc, formFields, pdfLinks);
 
-  const bytes = await pdfDoc.save()
-  const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' })
-  const stem = baseFileName.replace(/\.pdf$/i, '').trim() || 'document'
-  const filename = `${stem}.pdf`
+  const bytes = await pdfDoc.save();
+  const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
+  const stem = baseFileName.replace(/\.pdf$/i, "").trim() || "document";
+  const filename = `${stem}.pdf`;
 
-  return { bytes, blob, filename }
+  return { bytes, blob, filename };
 }

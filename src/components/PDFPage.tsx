@@ -7,6 +7,7 @@ import {
   type DragEvent,
 } from "react";
 import type { RenderTask } from "pdfjs-dist";
+import type { TextItem, TextMarkedContent } from "../types/pdfItems";
 import {
   applyCanvasToolMode,
   attachFabricCanvasTools,
@@ -33,7 +34,16 @@ import {
   applyPdfNativeTextOverridesToCanvas,
   paintPdfTextMaskLayer,
 } from "../lib/pdfNativeTextPersistence";
-import { addPdfTextItemsToCanvas } from "../lib/pdfTextToFabric";
+import {
+  isTextItem,
+  pdfTextRunId,
+  pdfTextItemToItextOptions,
+} from "../lib/pdfTextToFabric";
+import { getCachedPageData } from "../utils/pdfCache";
+import { isRTL, getVisualOrder } from "../utils/bidiHelper";
+import { extractColorForText } from "../utils/colorExtractor";
+import { mapPdfFont } from "../utils/fontMapper";
+import { pdfTextItemToPdfBounds } from "../lib/pdfTextGeometry";
 import type { FormFieldType } from "../types/formFields";
 import { usePdfEditorStore } from "../store/pdfEditorStore";
 
@@ -149,8 +159,7 @@ export function PDFPage({
       }
       if (signal.aborted) return;
 
-      const textContent = await page.getTextContent();
-      if (signal.aborted) return;
+      // Lazy extraction removed from here
 
       fabricHostEl.replaceChildren();
       const fabricEl = document.createElement("canvas");
@@ -169,13 +178,91 @@ export function PDFPage({
       });
       fabricInstanceRef.current = fabricCanvas;
 
+      fabricCanvas.on("mouse:dblclick", async (opt) => {
+        const s = usePdfEditorStore.getState();
+        const tool = s.activeTool;
+        if (tool !== "select" && tool !== "text") return;
+        if (opt.target) return;
+
+        const { x, y } = fabricCanvas.getScenePoint(opt.e);
+        const { textContent, operatorList } = await getCachedPageData(
+          page,
+          pageNum,
+        );
+
+        const [pdfX, pdfY] = viewport.convertToPdfPoint(x, y);
+
+        const item = textContent.items.find(
+          (it: TextItem | TextMarkedContent) => {
+            if (!isTextItem(it)) return false;
+            const bounds = pdfTextItemToPdfBounds(it);
+            // Pad hit-test slightly
+            return (
+              pdfX >= bounds.minX - 1 &&
+              pdfX <= bounds.maxX + 1 &&
+              pdfY >= bounds.minY - 1 &&
+              pdfY <= bounds.maxY + 1
+            );
+          },
+        );
+
+        if (item && isTextItem(item)) {
+          const color = extractColorForText(operatorList, item.str);
+          const fontInfo = mapPdfFont(item.fontName);
+          const isRtl = isRTL(item.str);
+          const visualText = getVisualOrder(item.str);
+
+          const originalPdfBounds = pdfTextItemToPdfBounds(item);
+
+          // Sample background color from the PDF canvas
+          let sampledFill = "#ffffff";
+          const ctx = pdfCanvasRef.current?.getContext("2d");
+          if (ctx) {
+            const pix = ctx.getImageData(x, y, 1, 1).data;
+            sampledFill = `rgb(${pix[0]}, ${pix[1]}, ${pix[2]})`;
+          }
+
+          s.addMaskedRegion(pageNum, originalPdfBounds, sampledFill);
+
+          const opts = pdfTextItemToItextOptions(
+            item,
+            viewport,
+            textContent.styles,
+          );
+
+          const text = new IText(visualText, {
+            ...opts,
+            fill: color,
+            fontFamily: fontInfo.family,
+            fontWeight: fontInfo.weight as IText["fontWeight"],
+            fontStyle: fontInfo.style as IText["fontStyle"],
+            direction: isRtl ? "rtl" : "ltr",
+            textAlign: isRtl ? "right" : "left",
+            data: {
+              pdfTextSource: true as const,
+              runId: pdfTextRunId(pageNum, Date.now()),
+              originalPdfBounds,
+            },
+          });
+
+          fabricCanvas.add(text);
+          fabricCanvas.setActiveObject(text);
+          text.enterEditing();
+          fabricCanvas.requestRenderAll();
+        } else if (textContent.items.length === 0) {
+          s.showToast(
+            "This region contains scanned content and cannot be edited as text",
+          );
+        }
+      });
+
       if (signal.aborted) {
         await fabricCanvas.dispose();
         return;
       }
 
       fabricHistoryRuntime.runSuppressed(() => {
-        addPdfTextItemsToCanvas(fabricCanvas, textContent, viewport, pageNum);
+        // addPdfTextItemsToCanvas removed (using lazy extraction)
         applyPdfNativeTextOverridesToCanvas(pageNum, fabricCanvas, w, h);
         addFormFieldsToCanvas(
           fabricCanvas,
@@ -225,7 +312,7 @@ export function PDFPage({
 
       const maskCtx = maskCanvas.getContext("2d");
       if (maskCtx) {
-        paintPdfTextMaskLayer(maskCtx, fabricCanvas, viewport);
+        paintPdfTextMaskLayer(maskCtx, fabricCanvas, viewport, pageNum);
       }
 
       detachPdfNativePersistence = attachPdfNativeTextPersistence(
