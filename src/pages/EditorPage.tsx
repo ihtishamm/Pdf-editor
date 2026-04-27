@@ -6,6 +6,7 @@ import { ExportingOverlay } from "../components/ExportingOverlay";
 import { PDFViewer } from "../components/PDFViewer";
 import { ToastHost } from "../components/ToastHost";
 import { usePdfEditorStore } from "../store/pdfEditorStore";
+import { SEO } from "../components/SEO";
 
 export function EditorPage() {
   const pdf = usePdfEditorStore((s) => s.pdf);
@@ -26,6 +27,10 @@ export function EditorPage() {
 
   return (
     <div className="editor-theme">
+      <SEO
+        title="Editor"
+        description="Powerful PDF editing tools at your fingertips. Edit text, add images, and sign your PDF documents with ease."
+      />
       <ExportingOverlay />
       <ToastHost />
       <div className={currentView === "ready" ? "hidden" : "block"}>

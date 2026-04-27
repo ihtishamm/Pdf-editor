@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Sun, Moon } from "lucide-react";
 import { usePdfEditorStore } from "../store/pdfEditorStore";
+import { SEO } from "../components/SEO";
 
 /* ===================================================================
    Reveal wrapper — IntersectionObserver driven
@@ -281,6 +282,24 @@ function HeroSection() {
 
   return (
     <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pb-20 pt-[120px] text-center">
+      <SEO
+        title="Free Online PDF Editor"
+        description="The most powerful free PDF editor on the web. Edit text, annotate, merge, compress, sign, and convert PDFs directly in your browser. No signup required."
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "PDFPro",
+          operatingSystem: "Web",
+          applicationCategory: "OfficeApplication",
+          offers: {
+            "@type": "Offer",
+            price: "0",
+            priceCurrency: "USD",
+          },
+          description:
+            "The most powerful free PDF editor on the web. Edit text, annotate, merge, compress, sign, and convert PDFs directly in your browser. No signup required. Works instantly without installation.",
+        }}
+      />
       <input
         type="file"
         ref={fileInputRef}
