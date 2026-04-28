@@ -59,7 +59,9 @@ export function ImagePropertiesPanel({
     const bound = target.getBoundingRect();
     const br = canvas.upperCanvasEl.getBoundingClientRect();
     el.style.left = `${br.left + bound.left}px`;
-    el.style.top = `${Math.max(8, br.top + bound.top - 48)}px`;
+    let top = br.top + bound.top - 110;
+    if (top < 120) top = br.top + bound.top + bound.height + 12;
+    el.style.top = `${top}px`;
   }, [canvas, target, tick]);
 
   useEffect(() => {

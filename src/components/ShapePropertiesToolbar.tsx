@@ -128,8 +128,8 @@ export function ShapePropertiesToolbar({
       const elWidth = el.offsetWidth || 300;
       const margin = 12;
 
-      let top = br.top + bound.top - 52;
-      if (top < 64) top = br.top + bound.top + bound.height + 12;
+      let top = br.top + bound.top - 110;
+      if (top < 120) top = br.top + bound.top + bound.height + 12;
 
       let left = br.left + bound.left + bound.width / 2 - elWidth / 2;
       if (left < margin) left = margin;
@@ -231,7 +231,7 @@ export function ShapePropertiesToolbar({
   return createPortal(
     <div
       ref={toolbarRef}
-      className="fixed z-99 flex max-w-[min(100vw-16px,480px)] flex-wrap items-center gap-2 rounded-lg border border-ring bg-surface-alt px-3 py-2 text-sm shadow-elevated"
+      className="fixed z-100 flex max-w-[min(100vw-16px,480px)] flex-wrap items-center gap-2 rounded-lg border border-ring bg-surface-alt px-3 py-2 text-sm shadow-elevated"
       role="toolbar"
       aria-label={`${title} properties`}
     >

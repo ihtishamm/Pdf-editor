@@ -7,10 +7,20 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { Trash2 } from "lucide-react";
+import { Copy, Link, Trash2 } from "lucide-react";
+import { usePdfEditorStore } from "../store/pdfEditorStore";
+import { createFabricPdfLink } from "../lib/fabricPdfLink";
 
 const FONT_CHOICES = [
   "Inter",
+  "Roboto",
+  "Open Sans",
+  "Lato",
+  "Montserrat",
+  "Poppins",
+  "Playfair Display",
+  "Lora",
+  "Merriweather",
   "Helvetica",
   "Arial",
   "Times New Roman",
@@ -50,6 +60,11 @@ export function TextEditToolbar({ canvas, target }: TextEditToolbarProps) {
   const toolbarRef = useRef<HTMLDivElement>(null);
   const [fabricTick, setFabricTick] = useState(0);
 
+  const currentPage = usePdfEditorStore((s) => s.currentPage);
+  const setActiveTool = usePdfEditorStore((s) => s.setActiveTool);
+  const addPdfLink = usePdfEditorStore((s) => s.addPdfLink);
+  const setSelectedPdfLinkId = usePdfEditorStore((s) => s.setSelectedPdfLinkId);
+
   const bump = useCallback(() => {
     setFabricTick((t) => t + 1);
   }, []);
@@ -61,9 +76,9 @@ export function TextEditToolbar({ canvas, target }: TextEditToolbarProps) {
       const bound = target.getBoundingRect();
       const br = canvas.upperCanvasEl.getBoundingClientRect();
 
-      // Position it higher (60px above instead of 44px)
-      let top = br.top + bound.top - 60;
-      if (top < 64) top = br.top + bound.top + bound.height + 12; // flip to bottom if too close to header
+      // Position it higher (110px above instead of 80px)
+      let top = br.top + bound.top - 110;
+      if (top < 120) top = br.top + bound.top + bound.height + 12; // flip to bottom if too close to header/toolbar
 
       // Center horizontally relative to object, but keep within viewport
       const elWidth = el.offsetWidth || 340;
@@ -126,6 +141,39 @@ export function TextEditToolbar({ canvas, target }: TextEditToolbarProps) {
     if (!canvas || !target) return;
     canvas.remove(target);
     canvas.discardActiveObject();
+    canvas.requestRenderAll();
+  };
+
+  const onDuplicate = async () => {
+    if (!canvas || !target) return;
+    const cloned = await target.clone();
+    cloned.set({
+      left: (target.left ?? 0) + 20,
+      top: (target.top ?? 0) + 20,
+    });
+    canvas.add(cloned);
+    canvas.setActiveObject(cloned);
+    canvas.requestRenderAll();
+  };
+
+  const onAddLink = () => {
+    if (!canvas || !target) return;
+    const br = target.getBoundingRect();
+    const canvasW = canvas.width || 1;
+    const canvasH = canvas.height || 1;
+
+    const entry = addPdfLink({
+      page: currentPage,
+      position: { x: br.left / canvasW, y: br.top / canvasH },
+      size: { w: br.width / canvasW, h: br.height / canvasH },
+    });
+
+    const linkRect = createFabricPdfLink(entry, canvasW, canvasH, true);
+    canvas.add(linkRect);
+    canvas.setActiveObject(linkRect);
+
+    setActiveTool("links");
+    setSelectedPdfLinkId(entry.id);
     canvas.requestRenderAll();
   };
 
@@ -216,6 +264,23 @@ export function TextEditToolbar({ canvas, target }: TextEditToolbarProps) {
           }}
         />
       </label>
+      <div className="h-4 w-px bg-border mx-1" />
+      <button
+        type="button"
+        onClick={onDuplicate}
+        className="flex h-8 w-8 items-center justify-center rounded border border-ring bg-surface-3 text-muted hover:bg-surface-alt"
+        title="Duplicate Text"
+      >
+        <Copy className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={onAddLink}
+        className="flex h-8 w-8 items-center justify-center rounded border border-ring bg-surface-3 text-muted hover:bg-surface-alt"
+        title="Add Link"
+      >
+        <Link className="h-4 w-4" />
+      </button>
       <div className="h-4 w-px bg-border mx-1" />
       <button
         type="button"

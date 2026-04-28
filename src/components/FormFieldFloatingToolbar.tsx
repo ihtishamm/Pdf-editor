@@ -73,8 +73,8 @@ export function FormFieldFloatingToolbar({
       const elWidth = el.offsetWidth || 500;
       const margin = 12;
 
-      let top = br.top + bound.top - 68;
-      if (top < 64) top = br.top + bound.top + bound.height + 12;
+      let top = br.top + bound.top - 110;
+      if (top < 120) top = br.top + bound.top + bound.height + 12;
 
       let left = br.left + bound.left + bound.width / 2 - elWidth / 2;
       if (left < margin) left = margin;

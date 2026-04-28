@@ -21,7 +21,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { isLikelyPdfBytes } from "../lib/isLikelyPdfBytes";
 import { usePdfEditorStore } from "../store/pdfEditorStore";
@@ -156,6 +156,18 @@ export function EditorShell({ children }: EditorShellProps) {
 
   const [signModalOpen, setSignModalOpen] = useState(false);
   const [undoHistoryOpen, setUndoHistoryOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Ctrl+Z or Cmd+Z
+      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        e.preventDefault();
+        undoLast();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [undoLast]);
 
   const hasHistory = history.length > 0;
 
